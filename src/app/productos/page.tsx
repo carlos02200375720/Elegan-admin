@@ -191,7 +191,7 @@ export default function ProductosPage() {
                 : <div className="product-image image-placeholder">Sin imagen</div>}
               <div className="product-info">
                 <h3>{product.name}</h3>
-                <p>{product.category || "Sin categoría"} · {Number(product.price ?? 0).toLocaleString("es-DO", { style: "currency", currency: "DOP" })}</p>
+                <p>{product.category || "Sin categoría"} · {Number(product.price ?? 0).toLocaleString("es-DO")}</p>
                 <span className={product.isActive ? "state published" : "state draft"}>
                   {product.isActive ? "Publicado" : "Borrador"}
                 </span>
