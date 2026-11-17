@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from "react";
 
 type Product = {
   id: string;
@@ -10,6 +10,13 @@ type Product = {
   imageUrl?: string;
   stock?: number;
   isActive?: boolean;
+};
+
+type UploadedMedia = {
+  url: string;
+  objectName: string;
+  contentType: string;
+  size: number;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
@@ -23,6 +30,18 @@ export default function ProductosPage() {
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [category, setCategory] = useState("todo");
+  const [price, setPrice] = useState("");
+  const [stock, setStock] = useState("10");
+  const [sizes, setSizes] = useState("");
+  const [colors, setColors] = useState("");
+  const [publication, setPublication] = useState("draft");
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [video, setVideo] = useState<File | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const loadProducts = useCallback(async (authToken: string) => {
     if (!API_BASE) {
@@ -90,6 +109,100 @@ export default function ProductosPage() {
       setError(err instanceof Error ? err.message : "Error de inicio de sesión.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  function selectPhotos(event: ChangeEvent<HTMLInputElement>) {
+    setPhotos(Array.from(event.target.files ?? []));
+  }
+
+  function selectVideo(event: ChangeEvent<HTMLInputElement>) {
+    setVideo(event.target.files?.[0] ?? null);
+  }
+
+  async function uploadMedia(file: File): Promise<UploadedMedia> {
+    if (!API_BASE) throw new Error("Falta configurar NEXT_PUBLIC_API_BASE_URL.");
+    const form = new FormData();
+    form.append("file", file);
+    form.append("name", file.name);
+    const response = await fetch(`${API_BASE}/api/admin/media`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    });
+    const data = await response.json();
+    if (!response.ok || !data.url) {
+      throw new Error(data.detail || `No se pudo subir ${file.name} (HTTP ${response.status}).`);
+    }
+    return data as UploadedMedia;
+  }
+
+  async function createProduct(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token || !API_BASE) return;
+    if (photos.length === 0) {
+      setError("Selecciona al menos una fotografía para el producto.");
+      return;
+    }
+    setCreating(true);
+    setError("");
+    setNotice("");
+    try {
+      const uploadedPhotos: UploadedMedia[] = [];
+      for (const photo of photos) uploadedPhotos.push(await uploadMedia(photo));
+      const uploadedVideo = video ? await uploadMedia(video) : null;
+      const imageUrls = uploadedPhotos.map((item) => item.url);
+
+      const response = await fetch(`${API_BASE}/api/admin/products`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: name.trim(),
+          description: description.trim(),
+          category,
+          price: Number(price),
+          stock: Number(stock),
+          sizes: sizes.split(",").map((value) => value.trim()).filter(Boolean),
+          colors: colors.split(",").map((value) => value.trim()).filter(Boolean),
+          imageUrl: imageUrls[0],
+          images: imageUrls,
+          videoUrl: uploadedVideo?.url ?? "",
+          hasVideo: Boolean(uploadedVideo),
+          isActive: publication === "published",
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          sessionStorage.removeItem("elegan_admin_token");
+          setToken("");
+          setProducts([]);
+        }
+        throw new Error(data.detail || `No se pudo guardar el producto (HTTP ${response.status}).`);
+      }
+      setNotice(`Producto "${name.trim()}" ${publication === "published" ? "publicado" : "guardado como borrador"} correctamente.`);
+      setName("");
+      setDescription("");
+      setCategory("todo");
+      setPrice("");
+      setStock("10");
+      setSizes("");
+      setColors("");
+      setPublication("draft");
+      setPhotos([]);
+      setVideo(null);
+      const photoInput = document.getElementById("product-photos") as HTMLInputElement | null;
+      const videoInput = document.getElementById("product-video") as HTMLInputElement | null;
+      if (photoInput) photoInput.value = "";
+      if (videoInput) videoInput.value = "";
+      await loadProducts(token);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo crear el producto.");
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -166,13 +279,72 @@ export default function ProductosPage() {
         <div>
           <p className="eyebrow">ELEGAN · CATÁLOGO</p>
           <h1>Productos</h1>
-          <p className="muted">Controla cuáles productos aparecen en la tienda móvil.</p>
+          <p className="muted">Crea productos y controla cuáles aparecen en la tienda móvil.</p>
         </div>
         <div className="header-actions">
           <a className="back-link" href="/">Inicio</a>
           <button className="button-secondary" type="button" onClick={logout}>Cerrar sesión</button>
         </div>
       </header>
+
+      <section className="products-panel create-panel">
+        <div className="list-heading">
+          <h2>Crear producto</h2>
+          <span>Fotografías y video opcional</span>
+        </div>
+        <form className="product-form" onSubmit={createProduct}>
+          <div className="form-grid">
+            <label className="field field-wide">
+              Nombre del producto
+              <input value={name} onChange={(event) => setName(event.target.value)} maxLength={200} required />
+            </label>
+            <label className="field">
+              Categoría
+              <input value={category} onChange={(event) => setCategory(event.target.value)} placeholder="Ej. ropa, zapatos" />
+            </label>
+            <label className="field">
+              Precio
+              <input type="number" min="0" step="0.01" value={price} onChange={(event) => setPrice(event.target.value)} required />
+            </label>
+            <label className="field">
+              Inventario
+              <input type="number" min="0" step="1" value={stock} onChange={(event) => setStock(event.target.value)} required />
+            </label>
+            <label className="field">
+              Tallas (separadas por coma)
+              <input value={sizes} onChange={(event) => setSizes(event.target.value)} placeholder="S, M, L, XL" />
+            </label>
+            <label className="field">
+              Colores (separados por coma)
+              <input value={colors} onChange={(event) => setColors(event.target.value)} placeholder="Negro, blanco, azul" />
+            </label>
+            <label className="field field-wide">
+              Descripción
+              <textarea rows={4} value={description} onChange={(event) => setDescription(event.target.value)} />
+            </label>
+            <label className="field field-wide">
+              Fotografías del producto (puedes seleccionar varias)
+              <input id="product-photos" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={selectPhotos} required />
+              <small>{photos.length ? `${photos.length} fotografía(s) seleccionada(s)` : "Formatos: JPG, PNG, WEBP o GIF. Máximo 100 MB por archivo."}</small>
+            </label>
+            <label className="field field-wide">
+              Video del producto (opcional)
+              <input id="product-video" type="file" accept="video/mp4,video/webm,video/quicktime" onChange={selectVideo} />
+              <small>{video ? video.name : "Formatos: MP4, WEBM o MOV. Máximo 100 MB."}</small>
+            </label>
+            <label className="field">
+              Estado inicial
+              <select value={publication} onChange={(event) => setPublication(event.target.value)}>
+                <option value="draft">Borrador</option>
+                <option value="published">Publicado</option>
+              </select>
+            </label>
+          </div>
+          <button className="create-button" type="submit" disabled={creating}>
+            {creating ? "Subiendo archivos y guardando..." : publication === "published" ? "Crear y publicar producto" : "Guardar como borrador"}
+          </button>
+        </form>
+      </section>
 
       <section className="products-panel">
         <div className="list-heading">
