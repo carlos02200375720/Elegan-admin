@@ -40,9 +40,23 @@ button:disabled, select:disabled { opacity: .55; cursor: wait; }
 .header-actions { display: flex; align-items: center; gap: 18px; }
 .button-secondary { background: #fff; color: #252932; border: 1px solid var(--border); }
 .products-panel { padding: 24px; }
+.create-panel { margin-bottom: 24px; }
 .list-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 18px; border-bottom: 1px solid var(--border); }
 .list-heading h2 { margin: 0; font-size: 20px; }
 .list-heading span { color: var(--muted); font-size: 13px; }
+.product-form { padding-top: 22px; }
+.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.field { min-width: 0; display: grid; align-content: start; gap: 8px; font-size: 13px; font-weight: 700; }
+.field-wide { grid-column: 1 / -1; }
+.field input, .field textarea, .field select {
+  width: 100%; min-height: 44px; padding: 11px 12px; border: 1px solid var(--border);
+  border-radius: 9px; background: #fff; color: var(--foreground); font: inherit; font-weight: 400;
+}
+.field textarea { min-height: 104px; resize: vertical; }
+.field input[type="file"] { padding: 9px; }
+.field small { color: var(--muted); font-size: 12px; font-weight: 400; line-height: 1.5; }
+.create-button { min-height: 46px; margin-top: 22px; padding: 0 20px; border: 0; border-radius: 9px; background: #17191d; color: white; font-weight: 700; cursor: pointer; }
+.create-button:disabled { opacity: .6; cursor: wait; }
 .product-row { display: flex; align-items: center; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--border); }
 .product-row:last-child { border-bottom: 0; }
 .product-image { width: 68px; height: 78px; flex: 0 0 68px; border-radius: 9px; object-fit: cover; background: #f0f1f3; }
@@ -63,6 +77,9 @@ button:disabled, select:disabled { opacity: .55; cursor: wait; }
   .login-panel { padding: 26px 20px; }
   .products-header { align-items: flex-start; flex-direction: column; }
   .products-panel { padding: 16px; }
+  .form-grid { grid-template-columns: 1fr; }
+  .field-wide { grid-column: auto; }
+  .create-button { width: 100%; }
   .product-row { align-items: flex-start; flex-wrap: wrap; }
   .product-info { min-width: calc(100% - 90px); }
   .publication-control { width: 100%; flex-basis: 100%; padding-left: 84px; }
