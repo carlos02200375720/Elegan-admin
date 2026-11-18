@@ -189,13 +189,14 @@ export default function CategoriasPage() {
               <textarea value={description} onChange={e => setDescription(e.target.value)} maxLength={300} placeholder="Describe esta categoría" /></label>
             <div className="field field-wide">
               <span>Imagen de la categoría</span>
-              <label className="image-picker" htmlFor="category-image">
-                {imagePreview ? <img src={imagePreview} alt="Vista previa de la categoría" /> : <span>Seleccionar imagen de la galería</span>}
+              <label className="image-picker" htmlFor="category-image" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 120, maxWidth: 240, padding: 12, border: "1px dashed #b9a99c", borderRadius: 12, cursor: "pointer", overflow: "hidden" }}>
+                {imagePreview ? <img src={imagePreview} alt="Vista previa de la categoría" style={{ maxWidth: "100%", maxHeight: 180, objectFit: "contain" }} /> : <span>Seleccionar imagen de la galería</span>}
               </label>
               <input
                 id="category-image"
                 type="file"
                 accept="image/jpeg,image/png,image/webp,image/gif"
+                style={{ display: "none" }}
                 onChange={event => {
                   const file = event.target.files?.[0] ?? null;
                   setImageFile(file);
