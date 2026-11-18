@@ -12,6 +12,8 @@ type Product = {
   isActive?: boolean;
 };
 
+type Category = { id: string; name: string; isActive?: boolean };
+
 type UploadedMedia = {
   url: string;
   objectName: string;
@@ -26,6 +28,7 @@ export default function ProductosPage() {
   const [password, setPassword] = useState("");
   const [token, setToken] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
@@ -66,6 +69,18 @@ export default function ProductosPage() {
       }
       const data: { items?: Product[] } = await response.json();
       setProducts(data.items ?? []);
+      try {
+        const categoryResponse = await fetch(`${API_BASE}/api/admin/categories`, {
+          headers: { Authorization: `Bearer ${authToken}` },
+          cache: "no-store",
+        });
+        if (categoryResponse.ok) {
+          const categoryData: { items?: Category[] } = await categoryResponse.json();
+          setCategories(categoryData.items ?? []);
+        }
+      } catch {
+        // La carga de productos no depende de que el listado de categorías esté disponible.
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar productos.");
     } finally {
@@ -308,7 +323,14 @@ export default function ProductosPage() {
             </label>
             <label className="field">
               Categoría
-              <input value={category} onChange={(event) => setCategory(event.target.value)} placeholder="Ej. ropa, zapatos" />
+              <select value={category} onChange={(event) => setCategory(event.target.value)}>
+                <option value="todo">Todo / Sin categoría</option>
+                {categories.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}{item.isActive ? "" : " (borrador)"}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="field">
               Precio
