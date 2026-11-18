@@ -21,8 +21,8 @@ export default function CategoriasPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
-  const [icon, setIcon] = useState("category");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState("");
   const [sortOrder, setSortOrder] = useState("0");
   const [publication, setPublication] = useState("draft");
   const [loading, setLoading] = useState(false);
@@ -82,19 +82,35 @@ export default function CategoriasPage() {
     if (!token || !API_BASE) return;
     setLoading(true); setError(""); setNotice("");
     try {
+      let uploadedImageUrl = "";
+      if (imageFile) {
+        const uploadData = new FormData();
+        uploadData.append("file", imageFile);
+        uploadData.append("name", imageFile.name);
+        const uploadResponse = await fetch(`${API_BASE}/api/admin/media`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: uploadData,
+        });
+        const uploadResult = await uploadResponse.json();
+        if (!uploadResponse.ok || !uploadResult.url) {
+          throw new Error(uploadResult.detail || `No se pudo subir la imagen (HTTP ${uploadResponse.status}).`);
+        }
+        uploadedImageUrl = uploadResult.url;
+      }
+
       const response = await fetch(`${API_BASE}/api/admin/categories`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          name: name.trim(), description: description.trim(), imageUrl: imageUrl.trim(),
-          icon: icon.trim() || "category", sortOrder: Number(sortOrder),
-          isActive: publication === "published",
+          name: name.trim(), description: description.trim(), imageUrl: uploadedImageUrl,
+          sortOrder: Number(sortOrder), isActive: publication === "published",
         }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail === "CATEGORY_ALREADY_EXISTS"
         ? "Ya existe una categoría con ese nombre." : data.detail || `No se pudo guardar (HTTP ${response.status}).`);
-      setName(""); setDescription(""); setImageUrl(""); setIcon("category");
+      setName(""); setDescription(""); setImageFile(null); setImagePreview("");
       setSortOrder("0"); setPublication("draft");
       setNotice(`Categoría "${name.trim()}" ${publication === "published" ? "publicada" : "guardada como borrador"}.`);
       await loadCategories(token);
@@ -171,10 +187,23 @@ export default function CategoriasPage() {
               <input value={name} onChange={e => setName(e.target.value)} maxLength={100} required placeholder="Ej. Calzado" /></label>
             <label className="field field-wide">Descripción
               <textarea value={description} onChange={e => setDescription(e.target.value)} maxLength={300} placeholder="Describe esta categoría" /></label>
-            <label className="field">Imagen (URL opcional)
-              <input type="url" value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://..." /></label>
-            <label className="field">Icono
-              <input value={icon} onChange={e => setIcon(e.target.value)} placeholder="category" /></label>
+            <div className="field field-wide">
+              <span>Imagen de la categoría</span>
+              <label className="image-picker" htmlFor="category-image">
+                {imagePreview ? <img src={imagePreview} alt="Vista previa de la categoría" /> : <span>Seleccionar imagen de la galería</span>}
+              </label>
+              <input
+                id="category-image"
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                onChange={event => {
+                  const file = event.target.files?.[0] ?? null;
+                  setImageFile(file);
+                  setImagePreview(file ? URL.createObjectURL(file) : "");
+                }}
+              />
+              <small>Elige una imagen desde tu dispositivo. Se subirá a Google Cloud Storage al guardar.</small>
+            </div>
             <label className="field">Orden de aparición
               <input type="number" value={sortOrder} onChange={e => setSortOrder(e.target.value)} /></label>
             <label className="field">Estado
