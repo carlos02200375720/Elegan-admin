@@ -113,7 +113,15 @@ export default function ProductosPage() {
   }
 
   function selectPhotos(event: ChangeEvent<HTMLInputElement>) {
-    setPhotos(Array.from(event.target.files ?? []));
+    const selected = Array.from(event.target.files ?? []);
+    const available = Math.max(0, 10 - photos.length);
+    if (selected.length > available) {
+      setError("Puedes seleccionar hasta 10 fotografías por producto.");
+    } else {
+      setError("");
+    }
+    setPhotos((current) => [...current, ...selected].slice(0, 10));
+    event.target.value = "";
   }
 
   function selectVideo(event: ChangeEvent<HTMLInputElement>) {
@@ -325,7 +333,12 @@ export default function ProductosPage() {
             <label className="field field-wide">
               Fotografías del producto (puedes seleccionar varias)
               <input id="product-photos" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={selectPhotos} required />
-              <small>{photos.length ? `${photos.length} fotografía(s) seleccionada(s)` : "Formatos: JPG, PNG, WEBP o GIF. Máximo 100 MB por archivo."}</small>
+              <small>{photos.length ? `${photos.length}/10 fotografía(s) seleccionada(s)` : "Selecciona hasta 10 fotografías. Formatos: JPG, PNG, WEBP o GIF. Máximo 100 MB por archivo."}</small>
+              {photos.length > 0 && (
+                <button className="button-secondary" type="button" onClick={() => setPhotos([])}>
+                  Quitar todas las fotografías
+                </button>
+              )}
             </label>
             <label className="field field-wide">
               Video del producto (opcional)
