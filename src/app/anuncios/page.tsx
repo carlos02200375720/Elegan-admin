@@ -10,6 +10,10 @@ import {
   Announcement,
   AnnouncementCreateInput,
   AnnouncementUpdateInput,
+  Category,
+  Product,
+  listCategories,
+  listProducts,
   createAnnouncementItem,
   deleteAnnouncementItem,
   listAnnouncements,
@@ -24,6 +28,12 @@ export default function AnunciosPage() {
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [destinationType, setDestinationType] = useState<"category" | "product">("category");
+  const [destinationId, setDestinationId] = useState("");
+  const [editDestinationType, setEditDestinationType] = useState<"category" | "product">("category");
+  const [editDestinationId, setEditDestinationId] = useState("");
 
   // Filters
   const [search, setSearch] = useState("");
@@ -72,6 +82,13 @@ export default function AnunciosPage() {
     void loadAnnouncements();
   }, [loadAnnouncements]);
 
+  useEffect(() => {
+    if (!token) return;
+    Promise.all([listCategories(token, handleUnauthorized), listProducts(token, handleUnauthorized)])
+      .then(([categoryList, productList]) => { setCategories(categoryList); setProducts(productList); })
+      .catch((err) => setError(err instanceof Error ? err.message : "No se pudieron cargar categorías y productos."));
+  }, [token, handleUnauthorized]);
+
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!token) return;
@@ -81,6 +98,7 @@ export default function AnunciosPage() {
       return;
     }
 
+    if (!destinationId) { setError("Selecciona la categoría o el producto al que llevará el anuncio."); return; }
     setCreating(true);
     setError("");
     setNotice("");
@@ -98,6 +116,8 @@ export default function AnunciosPage() {
         tag: tag.trim(),
         discount: discount.trim(),
         isActive,
+        destinationType,
+        destinationId,
       };
       if (customId.trim()) {
         payload.id = customId.trim();
@@ -113,6 +133,8 @@ export default function AnunciosPage() {
       setImageUrl("");
       setImageFile(null);
       setImagePreview("");
+      setDestinationType("category");
+      setDestinationId("");
       setIsActive(true);
       setShowCreate(false);
       await loadAnnouncements();
@@ -158,6 +180,8 @@ export default function AnunciosPage() {
     setEditImageFile(null);
     setEditImagePreview(item.imageUrl ?? "");
     setEditActive(Boolean(item.isActive));
+    setEditDestinationType(item.destinationType === "product" ? "product" : "category");
+    setEditDestinationId(String(item.destinationId ?? item.targetCategory ?? item.category ?? ""));
   }
 
   async function handleSaveEdit(event: FormEvent<HTMLFormElement>) {
@@ -169,6 +193,7 @@ export default function AnunciosPage() {
       return;
     }
 
+    if (!editDestinationId) { setError("Selecciona la categoría o el producto al que llevará el anuncio."); return; }
     setSavingEdit(true);
     setError("");
     setNotice("");
@@ -186,6 +211,8 @@ export default function AnunciosPage() {
         tag: editTag.trim(),
         discount: editDiscount.trim(),
         isActive: editActive,
+        destinationType: editDestinationType,
+        destinationId: editDestinationId,
       };
 
       await updateAnnouncementItem(editing.id, payload, token, handleUnauthorized);
@@ -339,12 +366,20 @@ export default function AnunciosPage() {
                     setImagePreview(file ? URL.createObjectURL(file) : "");
                   }}
                 />
-                <input
-                  type="url"
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="O pega una URL https://..."
-                />
+                <label className="field field-wide">
+                  Dirigir al cliente a
+                  <select value={destinationType} onChange={(e) => { setDestinationType(e.target.value as "category" | "product"); setDestinationId(""); }}>
+                    <option value="category">Una categoría</option>
+                    <option value="product">Un producto individual</option>
+                  </select>
+                  <select value={destinationId} onChange={(e) => setDestinationId(e.target.value)} required>
+                    <option value="">Selecciona {destinationType === "category" ? "una categoría" : "un producto"}</option>
+                    {destinationType === "category"
+                      ? categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)
+                      : products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
+                  </select>
+                  <small>Al tocar el anuncio, el cliente será dirigido a esta selección.</small>
+                </label>
               </div>
             </div>
             <div className="form-actions">
@@ -583,12 +618,19 @@ export default function AnunciosPage() {
                       if (file) setEditImagePreview(URL.createObjectURL(file));
                     }}
                   />
-                  <input
-                    type="url"
-                    value={editImageUrl}
-                    onChange={(e) => setEditImageUrl(e.target.value)}
-                    placeholder="https://..."
-                  />
+                  <label className="field field-wide">
+                    Dirigir al cliente a
+                    <select value={editDestinationType} onChange={(e) => { setEditDestinationType(e.target.value as "category" | "product"); setEditDestinationId(""); }}>
+                      <option value="category">Una categoría</option>
+                      <option value="product">Un producto individual</option>
+                    </select>
+                    <select value={editDestinationId} onChange={(e) => setEditDestinationId(e.target.value)} required>
+                      <option value="">Selecciona {editDestinationType === "category" ? "una categoría" : "un producto"}</option>
+                      {editDestinationType === "category"
+                        ? categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)
+                        : products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
+                    </select>
+                  </label>
                 </div>
               </div>
               <div className="form-actions">
