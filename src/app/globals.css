@@ -289,9 +289,10 @@ textarea:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  min-height: 72px;
-  padding: 14px 32px;
+  gap: 16px;
+  height: 50px;
+  min-height: 50px;
+  padding: 0 24px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
@@ -299,25 +300,29 @@ textarea:focus-visible {
 .topbar-left {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   min-width: 0;
 }
 
 .topbar-heading {
   min-width: 0;
+  display: grid;
+  gap: 1px;
 }
 
 .breadcrumb {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
+  gap: 5px;
+  font-size: 11px;
+  line-height: 1.1;
   color: var(--muted);
 }
 
 .topbar-heading h1 {
-  margin: 2px 0 0;
-  font-size: 20px;
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.2;
   font-weight: 700;
   letter-spacing: -0.015em;
   white-space: nowrap;
@@ -328,8 +333,23 @@ textarea:focus-visible {
 .topbar-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-shrink: 0;
+}
+
+.topbar .button-primary,
+.topbar .button-secondary {
+  min-height: 32px;
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.topbar .icon-button {
+  min-height: 32px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0 6px;
 }
 
 .workspace-content {
@@ -1217,7 +1237,7 @@ select:disabled {
   }
 
   .topbar {
-    padding: 12px 16px;
+    padding: 0 16px;
   }
 
   .workspace-content {

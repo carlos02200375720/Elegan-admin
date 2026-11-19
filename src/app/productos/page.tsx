@@ -346,6 +346,30 @@ export default function ProductosPage() {
     }
   }
 
+  const categoryNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const item of categories) {
+      map.set(item.id, item.name);
+    }
+    return map;
+  }, [categories]);
+
+  const getCategoryLabel = useCallback(
+    (categoryValue?: string) => {
+      const trimmed = categoryValue?.trim();
+      if (!trimmed || trimmed.toLowerCase() === "todo") {
+        return "Sin categoría";
+      }
+      const matched = categoryNameById.get(trimmed);
+      if (matched) return matched;
+      const looksLikeId =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed) ||
+        (/^[a-zA-Z0-9_-]{16,}$/.test(trimmed) && !trimmed.includes(" "));
+      return looksLikeId ? "Categoría no encontrada" : trimmed;
+    },
+    [categoryNameById]
+  );
+
   const filteredProducts = useMemo(() => {
     const q = search.trim().toLowerCase();
     return products.filter((item) => {
@@ -354,10 +378,11 @@ export default function ProductosPage() {
       if (!q) return true;
       return (
         item.name.toLowerCase().includes(q) ||
+        getCategoryLabel(item.category).toLowerCase().includes(q) ||
         (item.category ?? "").toLowerCase().includes(q)
       );
     });
-  }, [products, search, statusFilter]);
+  }, [products, search, statusFilter, getCategoryLabel]);
 
   return (
     <AdminShell
@@ -686,7 +711,7 @@ export default function ProductosPage() {
                   <div className="row-info">
                     <h3 className="row-title">{product.name}</h3>
                     <div className="row-meta">
-                      <span>{product.category || "Sin categoría"}</span>
+                      <span>{getCategoryLabel(product.category)}</span>
                       <span aria-hidden="true">·</span>
                       <span className="tabular">
                         {Number(product.price ?? 0).toLocaleString("es-DO", {
