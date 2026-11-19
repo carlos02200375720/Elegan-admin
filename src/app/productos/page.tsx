@@ -108,6 +108,13 @@ export default function ProductosPage() {
       setError("Selecciona al menos una fotografía para el producto.");
       return;
     }
+    if (shippingMethods.length === 0 || shippingMethods.some((method) =>
+      !method.name.trim() || !method.deliveryTime.trim() || !method.origin.trim() ||
+      !Number.isFinite(method.price) || method.price < 0
+    )) {
+      setError("Configura al menos un método de envío completo y con un precio válido.");
+      return;
+    }
     setCreating(true);
     setError("");
     setNotice("");
