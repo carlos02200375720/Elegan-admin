@@ -88,6 +88,8 @@ export type Announcement = {
   imageUrl?: string;
   tag?: string;
   discount?: string;
+  destinationType?: "category" | "product";
+  destinationId?: string;
   isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -101,6 +103,8 @@ export type AnnouncementCreateInput = {
   imageUrl?: string;
   tag?: string;
   discount?: string;
+  destinationType?: "category" | "product";
+  destinationId?: string;
   isActive?: boolean;
 };
 
@@ -110,6 +114,8 @@ export type AnnouncementUpdateInput = {
   imageUrl?: string;
   tag?: string;
   discount?: string;
+  destinationType?: "category" | "product";
+  destinationId?: string;
   isActive?: boolean;
 };
 
