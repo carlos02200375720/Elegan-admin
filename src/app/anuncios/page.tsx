@@ -343,7 +343,7 @@ export default function AnunciosPage() {
                 />
               </label>
               <div className="field field-wide">
-                <span>Imagen del banner (subir archivo o URL)</span>
+                <span>Imagen del banner (subir archivo)</span>
                 <label className="image-picker" htmlFor="announcement-image">
                   {imagePreview || imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
