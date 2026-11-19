@@ -132,6 +132,11 @@ export type OrderItem = {
   size?: string;
   color?: string;
   imageUrl?: string;
+  shippingMethodId?: string;
+  shippingMethodName?: string;
+  shippingPriceDOP?: string | number;
+  shippingDeliveryTime?: string;
+  shippingOrigin?: string;
 };
 
 export type Order = {
