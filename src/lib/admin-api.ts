@@ -44,6 +44,14 @@ export type AdminUser = {
   [key: string]: unknown;
 };
 
+export type ShippingMethod = {
+  id: string;
+  name: string;
+  price: number;
+  deliveryTime: string;
+  origin: string;
+};
+
 export type Product = {
   id: string;
   name: string;
@@ -53,6 +61,7 @@ export type Product = {
   stock?: number;
   sizes?: string[];
   colors?: string[];
+  shippingMethods?: ShippingMethod[];
   imageUrl?: string;
   images?: string[];
   videoUrl?: string;
