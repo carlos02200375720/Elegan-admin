@@ -243,6 +243,46 @@ export default function AnunciosPage() {
     }
   }
 
+  const categoryNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const cat of categories) {
+      map.set(cat.id, cat.name);
+    }
+    return map;
+  }, [categories]);
+
+  const productNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const prod of products) {
+      map.set(prod.id, prod.name);
+    }
+    return map;
+  }, [products]);
+
+  const getDestinationLabel = useCallback(
+    (item: Announcement) => {
+      const rawId = String(
+        item.destinationId ?? item.targetCategory ?? item.category ?? ""
+      ).trim();
+      if (!rawId) return "Sin destino";
+
+      const looksLikeId =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawId) ||
+        (/^[a-zA-Z0-9_-]{16,}$/.test(rawId) && !rawId.includes(" "));
+
+      if (item.destinationType === "product") {
+        const productName = productNameById.get(rawId);
+        if (productName) return `Producto: ${productName}`;
+        return looksLikeId ? "Producto: No encontrado" : `Producto: ${rawId}`;
+      }
+
+      const categoryName = categoryNameById.get(rawId);
+      if (categoryName) return `Categoría: ${categoryName}`;
+      return looksLikeId ? "Categoría: No encontrada" : `Categoría: ${rawId}`;
+    },
+    [categoryNameById, productNameById]
+  );
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return items.filter((item) => {
@@ -252,10 +292,11 @@ export default function AnunciosPage() {
       return (
         item.title.toLowerCase().includes(q) ||
         (item.tag ?? "").toLowerCase().includes(q) ||
-        (item.description ?? "").toLowerCase().includes(q)
+        (item.description ?? "").toLowerCase().includes(q) ||
+        getDestinationLabel(item).toLowerCase().includes(q)
       );
     });
-  }, [items, search, statusFilter]);
+  }, [items, search, statusFilter, getDestinationLabel]);
 
   return (
     <AdminShell
@@ -476,6 +517,12 @@ export default function AnunciosPage() {
                   />
                   <div className="row-info">
                     <h3 className="row-title">{item.title}</h3>
+                    <p
+                      className="row-description-clamp"
+                      title={item.description || undefined}
+                    >
+                      {item.description || "Sin descripción"}
+                    </p>
                     <div className="row-meta">
                       {item.tag && (
                         <>
@@ -489,7 +536,7 @@ export default function AnunciosPage() {
                           <span aria-hidden="true">·</span>
                         </>
                       )}
-                      <span>{item.description || "Sin descripción"}</span>
+                      <span>{getDestinationLabel(item)}</span>
                       <span aria-hidden="true">·</span>
                       <span
                         className={`status-text ${
