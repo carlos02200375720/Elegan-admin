@@ -14,6 +14,7 @@ import {
   listCategories,
   listProducts,
   Product,
+  ShippingMethod,
   updateProductItem,
   uploadAdminMedia,
 } from "@/lib/admin-api";
@@ -40,6 +41,7 @@ export default function ProductosPage() {
   const [stock, setStock] = useState("10");
   const [sizes, setSizes] = useState("");
   const [colors, setColors] = useState("");
+  const [shippingMethods, setShippingMethods] = useState<ShippingMethod[]>([]);
   const [publication, setPublication] = useState("draft");
   const [photos, setPhotos] = useState<File[]>([]);
   const [video, setVideo] = useState<File | null>(null);
@@ -55,6 +57,7 @@ export default function ProductosPage() {
   const [editStock, setEditStock] = useState("0");
   const [editSizes, setEditSizes] = useState("");
   const [editColors, setEditColors] = useState("");
+  const [editShippingMethods, setEditShippingMethods] = useState<ShippingMethod[]>([]);
   const [editActive, setEditActive] = useState(false);
   const [editPhotos, setEditPhotos] = useState<File[]>([]);
   const [editVideo, setEditVideo] = useState<File | null>(null);
@@ -133,6 +136,7 @@ export default function ProductosPage() {
             .split(",")
             .map((v) => v.trim())
             .filter(Boolean),
+          shippingMethods,
           imageUrl: imageUrls[0],
           images: imageUrls,
           videoUrl: uploadedVideo?.url ?? "",
@@ -153,6 +157,7 @@ export default function ProductosPage() {
       setStock("10");
       setSizes("");
       setColors("");
+      setShippingMethods([]);
       setPublication("draft");
       setPhotos([]);
       setVideo(null);
@@ -192,6 +197,7 @@ export default function ProductosPage() {
     setEditStock(product.stock !== undefined ? String(product.stock) : "0");
     setEditSizes(Array.isArray(product.sizes) ? product.sizes.join(", ") : "");
     setEditColors(Array.isArray(product.colors) ? product.colors.join(", ") : "");
+    setEditShippingMethods(Array.isArray(product.shippingMethods) ? product.shippingMethods : []);
     setEditActive(Boolean(product.isActive));
     setEditPhotos([]);
     setEditVideo(null);
@@ -208,6 +214,7 @@ export default function ProductosPage() {
       setEditStock(detail.stock !== undefined ? String(detail.stock) : "0");
       setEditSizes(Array.isArray(detail.sizes) ? detail.sizes.join(", ") : "");
       setEditColors(Array.isArray(detail.colors) ? detail.colors.join(", ") : "");
+      setEditShippingMethods(Array.isArray(detail.shippingMethods) ? detail.shippingMethods : []);
       setEditActive(Boolean(detail.isActive));
     } catch (err) {
       setError(
@@ -241,6 +248,7 @@ export default function ProductosPage() {
           .split(",")
           .map((v) => v.trim())
           .filter(Boolean),
+        shippingMethods: editShippingMethods,
         isActive: editActive,
       };
 
@@ -404,6 +412,28 @@ export default function ProductosPage() {
                   placeholder="Negro, blanco, azul"
                 />
               </label>
+              <div className="field field-wide">
+                <strong>Métodos de envío</strong>
+                <small>Configura las opciones que el cliente podrá elegir. Cada método incluye precio, entrega y origen.</small>
+                {shippingMethods.map((method, index) => (
+                  <div className="form-grid" key={method.id} style={{ border: "1px solid #e5ddd5", borderRadius: 10, padding: 12, marginTop: 10 }}>
+                    <label className="field">Método
+                      <input value={method.name} required placeholder="Envío estándar" onChange={(e) => setShippingMethods((items) => items.map((item, i) => i === index ? { ...item, name: e.target.value } : item))} />
+                    </label>
+                    <label className="field">Precio (DOP)
+                      <input type="number" min="0" step="0.01" value={method.price} required onChange={(e) => setShippingMethods((items) => items.map((item, i) => i === index ? { ...item, price: Number(e.target.value) } : item))} />
+                    </label>
+                    <label className="field">Tiempo de entrega
+                      <input value={method.deliveryTime} required placeholder="5–7 días" onChange={(e) => setShippingMethods((items) => items.map((item, i) => i === index ? { ...item, deliveryTime: e.target.value } : item))} />
+                    </label>
+                    <label className="field">Origen
+                      <input value={method.origin} required placeholder="Santo Domingo" onChange={(e) => setShippingMethods((items) => items.map((item, i) => i === index ? { ...item, origin: e.target.value } : item))} />
+                    </label>
+                    <button type="button" className="button-secondary" onClick={() => setShippingMethods((items) => items.filter((_, i) => i !== index))}>Eliminar método</button>
+                  </div>
+                ))}
+                <button type="button" className="button-secondary" style={{ marginTop: 10 }} disabled={shippingMethods.length >= 12} onClick={() => setShippingMethods((items) => [...items, { id: crypto.randomUUID(), name: "", price: 0, deliveryTime: "", origin: "" }])}>Añadir método de envío</button>
+              </div>
               <label className="field field-wide">
                 Descripción
                 <textarea
@@ -711,6 +741,28 @@ export default function ProductosPage() {
                       onChange={(e) => setEditColors(e.target.value)}
                     />
                   </label>
+                  <div className="field field-wide">
+                    <strong>Métodos de envío</strong>
+                    <small>El cliente podrá elegir una de estas opciones antes de comprar.</small>
+                    {editShippingMethods.map((method, index) => (
+                      <div className="form-grid" key={method.id} style={{ border: "1px solid #e5ddd5", borderRadius: 10, padding: 12, marginTop: 10 }}>
+                        <label className="field">Método
+                          <input value={method.name} required onChange={(e) => setEditShippingMethods((items) => items.map((item, i) => i === index ? { ...item, name: e.target.value } : item))} />
+                        </label>
+                        <label className="field">Precio (DOP)
+                          <input type="number" min="0" step="0.01" value={method.price} required onChange={(e) => setEditShippingMethods((items) => items.map((item, i) => i === index ? { ...item, price: Number(e.target.value) } : item))} />
+                        </label>
+                        <label className="field">Tiempo de entrega
+                          <input value={method.deliveryTime} required onChange={(e) => setEditShippingMethods((items) => items.map((item, i) => i === index ? { ...item, deliveryTime: e.target.value } : item))} />
+                        </label>
+                        <label className="field">Origen
+                          <input value={method.origin} required onChange={(e) => setEditShippingMethods((items) => items.map((item, i) => i === index ? { ...item, origin: e.target.value } : item))} />
+                        </label>
+                        <button type="button" className="button-secondary" onClick={() => setEditShippingMethods((items) => items.filter((_, i) => i !== index))}>Eliminar método</button>
+                      </div>
+                    ))}
+                    <button type="button" className="button-secondary" style={{ marginTop: 10 }} disabled={editShippingMethods.length >= 12} onClick={() => setEditShippingMethods((items) => [...items, { id: crypto.randomUUID(), name: "", price: 0, deliveryTime: "", origin: "" }])}>Añadir método de envío</button>
+                  </div>
                   <label className="field field-wide">
                     Descripción
                     <textarea
