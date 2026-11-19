@@ -85,6 +85,39 @@ export default function ProductosPage() {
     void loadData();
   }, [loadData]);
 
+  const photoPreviews = useMemo(
+    () =>
+      photos.map((file) => ({
+        file,
+        url: URL.createObjectURL(file),
+      })),
+    [photos]
+  );
+
+  useEffect(() => {
+    return () => {
+      photoPreviews.forEach((item) => URL.revokeObjectURL(item.url));
+    };
+  }, [photoPreviews]);
+
+  const videoPreviewUrl = useMemo(
+    () => (video ? URL.createObjectURL(video) : ""),
+    [video]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (videoPreviewUrl) URL.revokeObjectURL(videoPreviewUrl);
+    };
+  }, [videoPreviewUrl]);
+
+  function formatFileSize(bytes: number): string {
+    if (bytes < 1024 * 1024) {
+      return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+    }
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
   function selectPhotos(event: ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(event.target.files ?? []);
     const available = Math.max(0, 10 - photos.length);
@@ -97,8 +130,18 @@ export default function ProductosPage() {
     event.target.value = "";
   }
 
+  function removePhotoAt(index: number) {
+    setPhotos((current) => current.filter((_, idx) => idx !== index));
+  }
+
   function selectVideo(event: ChangeEvent<HTMLInputElement>) {
     setVideo(event.target.files?.[0] ?? null);
+  }
+
+  function clearVideo() {
+    setVideo(null);
+    const input = document.getElementById("product-video") as HTMLInputElement | null;
+    if (input) input.value = "";
   }
 
   async function handleCreateProduct(event: FormEvent<HTMLFormElement>) {
@@ -466,28 +509,88 @@ export default function ProductosPage() {
                     ? `${photos.length}/10 fotografía(s) seleccionada(s)`
                     : "Formatos: JPG, PNG, WEBP o GIF."}
                 </small>
-                {photos.length > 0 && (
-                  <div>
-                    <button
-                      className="button-secondary"
-                      type="button"
-                      onClick={() => setPhotos([])}
-                    >
-                      Quitar fotografías
-                    </button>
-                  </div>
+                {photoPreviews.length > 0 && (
+                  <>
+                    <div className="media-preview-grid" aria-label="Vista previa de fotografías">
+                      {photoPreviews.map((item, idx) => (
+                        <div className="media-preview-card" key={`${item.file.name}-${idx}`}>
+                          <div className="media-preview-frame">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={item.url}
+                              alt={`Vista previa ${idx + 1}: ${item.file.name}`}
+                              className="media-preview-img"
+                            />
+                            <button
+                              type="button"
+                              className="media-preview-remove"
+                              aria-label={`Quitar ${item.file.name}`}
+                              onClick={() => removePhotoAt(idx)}
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                          <div className="media-preview-caption">
+                            <span className="media-preview-name" title={item.file.name}>
+                              {item.file.name}
+                            </span>
+                            <span className="media-preview-meta tabular">
+                              {idx === 0 ? "Portada · " : ""}
+                              {formatFileSize(item.file.size)}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div>
+                      <button
+                        className="button-secondary"
+                        type="button"
+                        onClick={() => setPhotos([])}
+                      >
+                        Quitar fotografías
+                      </button>
+                    </div>
+                  </>
                 )}
               </div>
-              <label className="field field-wide">
-                Video del producto (opcional)
+              <div className="field field-wide">
+                <label htmlFor="product-video">Video del producto (opcional)</label>
                 <input
                   id="product-video"
                   type="file"
                   accept="video/mp4,video/webm,video/quicktime"
                   onChange={selectVideo}
                 />
-                <small>{video ? video.name : "Formatos: MP4, WEBM o MOV."}</small>
-              </label>
+                <small>
+                  {video
+                    ? `${video.name} · ${formatFileSize(video.size)}`
+                    : "Formatos: MP4, WEBM o MOV."}
+                </small>
+                {video && videoPreviewUrl && (
+                  <div className="media-video-preview" aria-label="Vista previa de video">
+                    <video
+                      src={videoPreviewUrl}
+                      controls
+                      playsInline
+                      preload="metadata"
+                      className="media-video-player"
+                    />
+                    <div className="media-video-bar">
+                      <span className="media-preview-name" title={video.name}>
+                        {video.name}
+                      </span>
+                      <button
+                        type="button"
+                        className="button-secondary"
+                        onClick={clearVideo}
+                      >
+                        Quitar video
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="form-actions">
               <button className="button-primary" type="submit" disabled={creating}>

@@ -15,7 +15,6 @@ import {
   AdminUser,
   clearStoredToken,
   fetchAuthMe,
-  getApiBase,
   getStoredToken,
   loginWithGoogleCredential,
   loginWithPassword,
@@ -75,7 +74,6 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 
   const googleBtnRef = useRef<HTMLDivElement | null>(null);
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
-  const apiBase = getApiBase();
 
   const handleUnauthorized = useCallback(() => {
     clearStoredToken();
@@ -206,10 +204,6 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 
   async function submitPasswordLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!apiBase) {
-      setAuthError("Falta configurar NEXT_PUBLIC_API_BASE_URL.");
-      return;
-    }
     setSubmitting(true);
     setAuthError("");
     try {
@@ -271,12 +265,6 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
             anuncios, órdenes y mensajes.
           </p>
 
-          {!apiBase && (
-            <p className="message error" role="alert">
-              Falta configurar la variable <code>NEXT_PUBLIC_API_BASE_URL</code>.
-            </p>
-          )}
-
           <form className="login-form" onSubmit={submitPasswordLogin}>
             <label htmlFor="admin-email">Correo electrónico</label>
             <input
@@ -297,7 +285,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
-            <button type="submit" disabled={submitting || !apiBase}>
+            <button type="submit" disabled={submitting}>
               {submitting ? "Ingresando..." : "Iniciar sesión"}
             </button>
           </form>
@@ -335,7 +323,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
                   <button
                     type="submit"
                     className="button-primary"
-                    disabled={submitting || !apiBase}
+                    disabled={submitting}
                   >
                     {submitting ? "Validando..." : "Validar acceso con Google"}
                   </button>

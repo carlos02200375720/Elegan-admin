@@ -241,11 +241,6 @@ export async function adminFetch<T>(
   path: string,
   options: RequestInit & { token?: string; onUnauthorized?: () => void } = {}
 ): Promise<T> {
-  const apiBase = getApiBase();
-  if (!apiBase) {
-    throw new AdminApiError("Falta configurar NEXT_PUBLIC_API_BASE_URL.", 0);
-  }
-
   const { token, onUnauthorized, headers, ...init } = options;
   const requestHeaders = new Headers(headers);
 
@@ -256,11 +251,20 @@ export async function adminFetch<T>(
     requestHeaders.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(`${apiBase}${path}`, {
-    ...init,
-    headers: requestHeaders,
-    cache: "no-store",
-  });
+  let response: Response;
+  try {
+    // Llamada same-origin hacia el proxy de Next.js (/api/admin/[...path]) para evitar bloqueos de CORS
+    response = await fetch(path, {
+      ...init,
+      headers: requestHeaders,
+      cache: "no-store",
+    });
+  } catch {
+    throw new AdminApiError(
+      "No se pudo conectar con el servidor del panel. Verifica tu conexión e intenta nuevamente.",
+      0
+    );
+  }
 
   const text = await response.text();
   let parsed: unknown = null;
