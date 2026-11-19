@@ -129,6 +129,7 @@ export type OrderItem = {
   title?: string;
   quantity?: number;
   price?: number;
+  priceDOP?: string | number;
   size?: string;
   color?: string;
   imageUrl?: string;
