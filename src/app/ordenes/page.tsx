@@ -377,16 +377,44 @@ export default function OrdenesPage() {
                               <span>Color: {item.color}</span>
                             </>
                           )}
+                          {item.shippingMethodName && (
+                            <>
+                              <span aria-hidden="true">·</span>
+                              <span>Envío: {item.shippingMethodName}</span>
+                            </>
+                          )}
+                          {item.shippingDeliveryTime && (
+                            <>
+                              <span aria-hidden="true">·</span>
+                              <span>Entrega: {item.shippingDeliveryTime}</span>
+                            </>
+                          )}
+                          {item.shippingOrigin && (
+                            <>
+                              <span aria-hidden="true">·</span>
+                              <span>Origen: {item.shippingOrigin}</span>
+                            </>
+                          )}
                         </div>
                       </div>
-                      {item.price !== undefined && (
-                        <span className="tabular" style={{ fontWeight: 600 }}>
-                          {Number(item.price).toLocaleString("es-DO", {
-                            style: "currency",
-                            currency: "DOP",
-                          })}
-                        </span>
-                      )}
+                      <div className="tabular" style={{ fontWeight: 600, textAlign: "right" }}>
+                        {(item.priceDOP !== undefined || item.price !== undefined) && (
+                          <div>
+                            {Number(item.priceDOP ?? item.price).toLocaleString("es-DO", {
+                              style: "currency",
+                              currency: "DOP",
+                            })}
+                          </div>
+                        )}
+                        {item.shippingPriceDOP !== undefined && (
+                          <div className="muted-sm">
+                            Envío: {Number(item.shippingPriceDOP).toLocaleString("es-DO", {
+                              style: "currency",
+                              currency: "DOP",
+                            })}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
