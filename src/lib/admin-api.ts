@@ -151,6 +151,9 @@ export type Order = {
   city?: string;
   status: string;
   total?: number;
+  totalDOP?: string | number;
+  subtotalDOP?: string | number;
+  shippingTotalDOP?: string | number;
   subtotal?: number;
   items?: OrderItem[];
   notes?: string;
