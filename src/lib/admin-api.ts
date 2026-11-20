@@ -174,6 +174,7 @@ export type Order = {
   couponDiscountDOP?: string | number;
   paymentMethod?: "bank_transfer" | "cash_on_delivery" | string;
   paymentStatus?: string;
+  paymentProofUrl?: string;
   bankAccount?: { bankName?: string; accountNumber?: string; accountType?: string; holderName?: string; holderDocument?: string };
   cashOnDeliveryAccepted?: boolean;
   subtotal?: number;
