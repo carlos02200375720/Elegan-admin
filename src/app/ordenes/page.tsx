@@ -10,6 +10,7 @@ import {
   ORDER_STATUSES,
   OrderStatus,
   updateOrderStatus,
+  reviewTransferPayment,
 } from "@/lib/admin-api";
 
 function getStatusInfo(status: string) {
@@ -319,6 +320,16 @@ export default function OrdenesPage() {
               <div className="tabular">
                 <strong>Fecha:</strong> {formatDate(selectedOrder.createdAt)}
               </div>
+              {selectedOrder.paymentMethod && <div><strong>Método de pago:</strong> {selectedOrder.paymentMethod === "bank_transfer" ? "Transferencia bancaria" : selectedOrder.paymentMethod === "cash_on_delivery" ? "Pago contra entrega" : selectedOrder.paymentMethod}</div>}
+              {selectedOrder.paymentStatus && <div><strong>Estado del pago:</strong> {selectedOrder.paymentStatus}</div>}
+              {selectedOrder.bankAccount && <div><strong>Cuenta elegida:</strong> {selectedOrder.bankAccount.bankName} · {selectedOrder.bankAccount.accountNumber} · {selectedOrder.bankAccount.holderName}</div>}
+              {selectedOrder.paymentProofUrl && <div><strong>Comprobante:</strong> <a href={String(selectedOrder.paymentProofUrl)} target="_blank" rel="noreferrer">Ver imagen del comprobante</a></div>}
+              {selectedOrder.paymentMethod === "bank_transfer" && selectedOrder.paymentStatus === "proof_submitted" && (
+                <div className="row-actions">
+                  <button className="button-primary" onClick={async () => { if (!token) return; await reviewTransferPayment(selectedOrder.id, true, "", token, handleUnauthorized); await loadOrders(); setSelectedOrder(null); }}>Confirmar transferencia</button>
+                  <button className="button-danger" onClick={async () => { if (!token) return; const note = window.prompt("Motivo del rechazo (opcional):") || ""; await reviewTransferPayment(selectedOrder.id, false, note, token, handleUnauthorized); await loadOrders(); setSelectedOrder(null); }}>Rechazar comprobante</button>
+                </div>
+              )}
               {selectedOrder.notes && (
                 <div>
                   <strong>Notas:</strong> {selectedOrder.notes}
