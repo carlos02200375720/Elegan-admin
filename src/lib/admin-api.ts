@@ -241,6 +241,12 @@ function extractErrorMessage(payload: unknown, status: number): string {
       if (obj.detail === "CATEGORY_ALREADY_EXISTS") {
         return "Ya existe una categoría con ese nombre.";
       }
+      if (obj.detail === "COUPON_ALREADY_EXISTS") {
+        return "Ya existe un cupón con ese código.";
+      }
+      if (obj.detail === "COUPON_NOT_FOUND") {
+        return "El cupón ya no existe.";
+      }
       return obj.detail;
     }
     if (Array.isArray(obj.detail) && obj.detail.length > 0) {
