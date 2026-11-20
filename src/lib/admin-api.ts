@@ -81,6 +81,16 @@ export type Category = {
   isActive?: boolean;
 };
 
+export type Coupon = {
+  id: string;
+  code: string;
+  discountType: "percentage" | "fixed";
+  discountValue: number;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export type Announcement = {
   id: string;
   title: string;
@@ -547,6 +557,43 @@ export async function deleteAnnouncementItem(
     method: "DELETE",
     token,
     onUnauthorized,
+  });
+}
+
+// Cupones (/api/admin/coupons)
+export async function listCoupons(token: string, onUnauthorized?: () => void): Promise<Coupon[]> {
+  const data = await adminFetch<unknown>("/api/admin/coupons", { token, onUnauthorized });
+  return unwrapItems<Coupon>(data, ["coupons"]);
+}
+
+export async function createCouponItem(
+  payload: { code: string; discountType: "percentage" | "fixed"; discountValue: number; isActive: boolean },
+  token: string,
+  onUnauthorized?: () => void
+): Promise<unknown> {
+  return adminFetch<unknown>("/api/admin/coupons", {
+    method: "POST", token, onUnauthorized, body: JSON.stringify(payload),
+  });
+}
+
+export async function updateCouponItem(
+  code: string,
+  payload: { discountType?: "percentage" | "fixed"; discountValue?: number; isActive?: boolean },
+  token: string,
+  onUnauthorized?: () => void
+): Promise<unknown> {
+  return adminFetch<unknown>(`/api/admin/coupons/${encodeURIComponent(code)}`, {
+    method: "PATCH", token, onUnauthorized, body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteCouponItem(
+  code: string,
+  token: string,
+  onUnauthorized?: () => void
+): Promise<void> {
+  await adminFetch<unknown>(`/api/admin/coupons/${encodeURIComponent(code)}`, {
+    method: "DELETE", token, onUnauthorized,
   });
 }
 
