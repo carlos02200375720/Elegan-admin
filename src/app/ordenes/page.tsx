@@ -372,6 +372,11 @@ export default function OrdenesPage() {
                   <button className="button-danger" disabled={busyId === selectedOrder.id} onClick={() => void handleTransferReview(selectedOrder, false)}>Rechazar comprobante</button>
                 </div>
               )}
+              {selectedOrder.paymentMethod === "bank_transfer" && selectedOrder.paymentStatus !== "verified" && selectedOrder.status !== "cancelado" && (
+                <div className="row-actions">
+                  <button className="button-danger" disabled={busyId === selectedOrder.id} onClick={() => void handleStatusChange(selectedOrder, "cancelado")}>Cancelar pedido y liberar inventario</button>
+                </div>
+              )}
               {selectedOrder.notes && (
                 <div>
                   <strong>Notas:</strong> {selectedOrder.notes}
