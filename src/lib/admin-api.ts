@@ -174,7 +174,7 @@ export type Order = {
   couponDiscountDOP?: string | number;
   paymentMethod?: "bank_transfer" | "cash_on_delivery" | string;
   paymentStatus?: string;
-  paymentProofUrl?: string;
+  paymentProofObjectName?: string;
   bankAccount?: { bankName?: string; accountNumber?: string; accountType?: string; holderName?: string; holderDocument?: string };
   cashOnDeliveryAccepted?: boolean;
   subtotal?: number;
@@ -788,4 +788,21 @@ export async function deleteBankAccount(id: string, token: string, onUnauthorize
 }
 export async function reviewTransferPayment(orderId: string, approved: boolean, note: string, token: string, onUnauthorized?: () => void): Promise<void> {
   await adminFetch<unknown>(`/api/admin/orders/${encodeURIComponent(orderId)}/payment-review`, { method: "PATCH", token, onUnauthorized, body: JSON.stringify({ approved, note }) });
+}
+
+export async function getOrderProof(orderId: string, token: string, onUnauthorized?: () => void): Promise<Blob> {
+  let response: Response;
+  try {
+    response = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/proof`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+  } catch {
+    throw new AdminApiError("No se pudo cargar el comprobante.", 0);
+  }
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) onUnauthorized?.();
+    throw new AdminApiError("No se pudo abrir el comprobante del pedido.", response.status);
+  }
+  return response.blob();
 }
