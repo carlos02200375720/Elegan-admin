@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { ReactNode, useState } from "react";
 import {
   FolderTree,
+  Building2,
   LayoutDashboard,
   LogOut,
   Megaphone,
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { href: "/categorias", label: "Categorías", icon: FolderTree },
   { href: "/anuncios", label: "Anuncios", icon: Megaphone },
   { href: "/cupones", label: "Cupones", icon: Ticket },
+  { href: "/cuentas-bancarias", label: "Cuentas bancarias", icon: Building2 },
   { href: "/ordenes", label: "Órdenes", icon: ShoppingBag },
   { href: "/mensajes", label: "Mensajes", icon: MessageSquare },
   { href: "/perfil", label: "Perfil", icon: UserCog },
