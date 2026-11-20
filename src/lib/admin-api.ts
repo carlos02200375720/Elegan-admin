@@ -172,6 +172,10 @@ export type Order = {
   shippingTotalDOP?: string | number;
   couponCode?: string;
   couponDiscountDOP?: string | number;
+  paymentMethod?: "bank_transfer" | "cash_on_delivery" | string;
+  paymentStatus?: string;
+  bankAccount?: { bankName?: string; accountNumber?: string; accountType?: string; holderName?: string; holderDocument?: string };
+  cashOnDeliveryAccepted?: boolean;
   subtotal?: number;
   items?: OrderItem[];
   notes?: string;
@@ -760,4 +764,27 @@ export async function uploadAdminMedia(
     throw new AdminApiError(`No se recibió la URL de ${file.name}.`, 500);
   }
   return data;
+}
+
+export type BankAccount = {
+  id: string; bankName: string; accountNumber: string; accountType: string;
+  holderName: string; holderDocument?: string; isActive: boolean;
+};
+export async function listBankAccounts(token: string, onUnauthorized?: () => void): Promise<BankAccount[]> {
+  const data = await adminFetch<unknown>("/api/admin/bank-accounts", { token, onUnauthorized });
+  return unwrapItems<BankAccount>(data);
+}
+export async function createBankAccount(payload: Omit<BankAccount, "id">, token: string, onUnauthorized?: () => void): Promise<BankAccount> {
+  const data = await adminFetch<unknown>("/api/admin/bank-accounts", { method: "POST", token, onUnauthorized, body: JSON.stringify(payload) });
+  return unwrapEntity<BankAccount>(data);
+}
+export async function updateBankAccount(id: string, payload: Partial<BankAccount>, token: string, onUnauthorized?: () => void): Promise<BankAccount> {
+  const data = await adminFetch<unknown>(`/api/admin/bank-accounts/${encodeURIComponent(id)}`, { method: "PATCH", token, onUnauthorized, body: JSON.stringify(payload) });
+  return unwrapEntity<BankAccount>(data);
+}
+export async function deleteBankAccount(id: string, token: string, onUnauthorized?: () => void): Promise<void> {
+  await adminFetch<unknown>(`/api/admin/bank-accounts/${encodeURIComponent(id)}`, { method: "DELETE", token, onUnauthorized });
+}
+export async function reviewTransferPayment(orderId: string, approved: boolean, note: string, token: string, onUnauthorized?: () => void): Promise<void> {
+  await adminFetch<unknown>(`/api/admin/orders/${encodeURIComponent(orderId)}/payment-review`, { method: "PATCH", token, onUnauthorized, body: JSON.stringify({ approved, note }) });
 }
