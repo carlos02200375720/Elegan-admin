@@ -170,6 +170,8 @@ export type Order = {
   totalDOP?: string | number;
   subtotalDOP?: string | number;
   shippingTotalDOP?: string | number;
+  couponCode?: string;
+  couponDiscountDOP?: string | number;
   subtotal?: number;
   items?: OrderItem[];
   notes?: string;
