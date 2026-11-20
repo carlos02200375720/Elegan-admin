@@ -45,6 +45,24 @@ export default function ModeracionPage() {
 
   useEffect(() => { void load(); }, [load]);
 
+  async function deleteReportedComment(report: Report) {
+    if (!token || !window.confirm("¿Eliminar este comentario de las publicaciones?")) return;
+    setBusyId(report.id);
+    setError("");
+    setNotice("");
+    try {
+      await adminFetch(`/api/admin/moderation/comments/${encodeURIComponent(report.commentId)}`, {
+        method: "DELETE", token, onUnauthorized: handleUnauthorized,
+      });
+      setNotice("Comentario eliminado y reporte marcado como revisado.");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo eliminar el comentario.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
   async function changeStatus(report: Report, status: "reviewed" | "dismissed") {
     if (!token) return;
     setBusyId(report.id);
@@ -101,6 +119,7 @@ export default function ModeracionPage() {
                   <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                     <button type="button" className="button-primary" disabled={busyId === report.id} onClick={() => void changeStatus(report, "reviewed")}>Marcar revisado</button>
                     <button type="button" className="button-secondary" disabled={busyId === report.id} onClick={() => void changeStatus(report, "dismissed")}>Descartar</button>
+                    <button type="button" className="button-secondary" disabled={busyId === report.id || !report.commentText} onClick={() => void deleteReportedComment(report)}>Eliminar comentario</button>
                   </div>
                 )}
               </article>
