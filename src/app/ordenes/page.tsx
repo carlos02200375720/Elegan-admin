@@ -91,6 +91,24 @@ export default function OrdenesPage() {
     }
   }
 
+  async function handleTransferReview(order: Order, approved: boolean) {
+    if (!token) return;
+    const note = approved ? "" : window.prompt("Motivo del rechazo (opcional):") || "";
+    setBusyId(order.id);
+    setError("");
+    setNotice("");
+    try {
+      await reviewTransferPayment(order.id, approved, note, token, handleUnauthorized);
+      setNotice(approved ? "Transferencia verificada. Ya puedes preparar el despacho." : "Comprobante rechazado. El cliente puede enviar otro comprobante.");
+      await loadOrders();
+      setSelectedOrder(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo revisar el comprobante.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return orders.filter((order) => {
@@ -328,8 +346,8 @@ export default function OrdenesPage() {
               {typeof selectedOrder.paymentReviewNote === "string" && selectedOrder.paymentReviewNote && <div><strong>Nota de revisión:</strong> {selectedOrder.paymentReviewNote}</div>}
               {selectedOrder.paymentMethod === "bank_transfer" && selectedOrder.paymentStatus === "proof_submitted" && (
                 <div className="row-actions">
-                  <button className="button-primary" onClick={async () => { if (!token) return; await reviewTransferPayment(selectedOrder.id, true, "", token, handleUnauthorized); await loadOrders(); setSelectedOrder(null); }}>Confirmar transferencia</button>
-                  <button className="button-danger" onClick={async () => { if (!token) return; const note = window.prompt("Motivo del rechazo (opcional):") || ""; await reviewTransferPayment(selectedOrder.id, false, note, token, handleUnauthorized); await loadOrders(); setSelectedOrder(null); }}>Rechazar comprobante</button>
+                  <button className="button-primary" disabled={busyId === selectedOrder.id} onClick={() => void handleTransferReview(selectedOrder, true)}>Confirmar transferencia</button>
+                  <button className="button-danger" disabled={busyId === selectedOrder.id} onClick={() => void handleTransferReview(selectedOrder, false)}>Rechazar comprobante</button>
                 </div>
               )}
               {selectedOrder.notes && (
