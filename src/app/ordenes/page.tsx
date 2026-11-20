@@ -238,7 +238,7 @@ export default function OrdenesPage() {
                             className="inline-select"
                             aria-label={`Estado de orden ${order.orderNumber || order.id}`}
                             value={currentSelectValue}
-                            disabled={busyId === order.id}
+                            disabled={busyId === order.id || (order.paymentMethod === "bank_transfer" && order.paymentStatus !== "verified")}
                             onChange={(e) => {
                               const next = e.target.value as OrderStatus;
                               if (next) void handleStatusChange(order, next);
@@ -347,7 +347,7 @@ export default function OrdenesPage() {
                     ? selectedOrder.status
                     : ""
                 }
-                disabled={busyId === selectedOrder.id}
+                disabled={busyId === selectedOrder.id || (selectedOrder.paymentMethod === "bank_transfer" && selectedOrder.paymentStatus !== "verified")}
                 onChange={(e) => {
                   const next = e.target.value as OrderStatus;
                   if (next) void handleStatusChange(selectedOrder, next);
