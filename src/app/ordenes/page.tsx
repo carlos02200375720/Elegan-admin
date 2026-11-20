@@ -6,6 +6,7 @@ import { AdminShell } from "@/components/AdminShell";
 import { useAdminAuth } from "@/components/AdminAuthProvider";
 import {
   listOrders,
+  getOrderProof,
   Order,
   ORDER_STATUSES,
   OrderStatus,
@@ -44,6 +45,7 @@ export default function OrdenesPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [proofImageUrl, setProofImageUrl] = useState("");
 
   const loadOrders = useCallback(async () => {
     if (!token) return;
@@ -62,6 +64,26 @@ export default function OrdenesPage() {
   useEffect(() => {
     void loadOrders();
   }, [loadOrders]);
+
+  useEffect(() => {
+    let active = true;
+    let objectUrl = "";
+    setProofImageUrl("");
+    if (!selectedOrder?.paymentProofObjectName || !token) return;
+    getOrderProof(selectedOrder.id, token, handleUnauthorized)
+      .then((blob) => {
+        if (!active) return;
+        objectUrl = URL.createObjectURL(blob);
+        setProofImageUrl(objectUrl);
+      })
+      .catch((err) => {
+        if (active) setError(err instanceof Error ? err.message : "No se pudo cargar el comprobante.");
+      });
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [selectedOrder?.id, selectedOrder?.paymentProofObjectName, token, handleUnauthorized]);
 
   async function handleStatusChange(order: Order, nextStatus: OrderStatus) {
     if (!token) return;
@@ -341,7 +363,7 @@ export default function OrdenesPage() {
               {selectedOrder.paymentMethod && <div><strong>Método de pago:</strong> {selectedOrder.paymentMethod === "bank_transfer" ? "Transferencia bancaria" : selectedOrder.paymentMethod === "cash_on_delivery" ? "Pago contra entrega" : selectedOrder.paymentMethod}</div>}
               {selectedOrder.paymentStatus && <div><strong>Estado del pago:</strong> {selectedOrder.paymentStatus}</div>}
               {selectedOrder.bankAccount && <div><strong>Cuenta elegida:</strong> {selectedOrder.bankAccount.bankName} · {selectedOrder.bankAccount.accountNumber} · {selectedOrder.bankAccount.holderName}</div>}
-              {selectedOrder.paymentProofUrl && <div><strong>Comprobante de transferencia:</strong><div><a href={String(selectedOrder.paymentProofUrl)} target="_blank" rel="noreferrer">Abrir imagen original</a></div><a href={String(selectedOrder.paymentProofUrl)} target="_blank" rel="noreferrer"><img src={String(selectedOrder.paymentProofUrl)} alt="Comprobante de transferencia del pedido" style={{ display: "block", maxWidth: "100%", maxHeight: 360, objectFit: "contain", marginTop: 10, borderRadius: 8 }} /></a></div>}
+              {selectedOrder.paymentProofObjectName && <div><strong>Comprobante de transferencia:</strong>{proofImageUrl ? <><div><a href={proofImageUrl} target="_blank" rel="noreferrer">Abrir imagen original</a></div><a href={proofImageUrl} target="_blank" rel="noreferrer"><img src={proofImageUrl} alt="Comprobante de transferencia del pedido" style={{ display: "block", maxWidth: "100%", maxHeight: 360, objectFit: "contain", marginTop: 10, borderRadius: 8 }} /></a></> : <p className="muted-sm">Cargando comprobante...</p>}</div>}
               {selectedOrder.paymentMethod === "cash_on_delivery" && <div><strong>Condiciones de contra entrega:</strong> {selectedOrder.cashOnDeliveryAccepted ? "Aceptadas por el cliente" : "No aceptadas"}</div>}
               {typeof selectedOrder.paymentReviewNote === "string" && selectedOrder.paymentReviewNote && <div><strong>Nota de revisión:</strong> {selectedOrder.paymentReviewNote}</div>}
               {selectedOrder.paymentMethod === "bank_transfer" && selectedOrder.paymentStatus === "proof_submitted" && (
