@@ -12,6 +12,7 @@ import {
   MessageSquare,
   Package,
   ShoppingBag,
+  Ticket,
   UserCog,
   X,
 } from "lucide-react";
@@ -22,6 +23,7 @@ const NAV_ITEMS = [
   { href: "/productos", label: "Productos", icon: Package },
   { href: "/categorias", label: "Categorías", icon: FolderTree },
   { href: "/anuncios", label: "Anuncios", icon: Megaphone },
+  { href: "/cupones", label: "Cupones", icon: Ticket },
   { href: "/ordenes", label: "Órdenes", icon: ShoppingBag },
   { href: "/mensajes", label: "Mensajes", icon: MessageSquare },
   { href: "/perfil", label: "Perfil", icon: UserCog },
