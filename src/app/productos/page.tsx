@@ -42,6 +42,7 @@ export default function ProductosPage() {
   const [sizes, setSizes] = useState("");
   const [colors, setColors] = useState("");
   const [shippingMethods, setShippingMethods] = useState<ShippingMethod[]>([]);
+  const [allowCashOnDelivery, setAllowCashOnDelivery] = useState(true);
   const [publication, setPublication] = useState("draft");
   const [photos, setPhotos] = useState<File[]>([]);
   const [video, setVideo] = useState<File | null>(null);
@@ -58,6 +59,7 @@ export default function ProductosPage() {
   const [editSizes, setEditSizes] = useState("");
   const [editColors, setEditColors] = useState("");
   const [editShippingMethods, setEditShippingMethods] = useState<ShippingMethod[]>([]);
+  const [editAllowCashOnDelivery, setEditAllowCashOnDelivery] = useState(true);
   const [editActive, setEditActive] = useState(false);
   const [editPhotos, setEditPhotos] = useState<File[]>([]);
   const [editVideo, setEditVideo] = useState<File | null>(null);
@@ -187,6 +189,7 @@ export default function ProductosPage() {
             .map((v) => v.trim())
             .filter(Boolean),
           shippingMethods,
+          allowCashOnDelivery,
           imageUrl: imageUrls[0],
           images: imageUrls,
           videoUrl: uploadedVideo?.url ?? "",
@@ -208,6 +211,7 @@ export default function ProductosPage() {
       setSizes("");
       setColors("");
       setShippingMethods([]);
+      setAllowCashOnDelivery(true);
       setPublication("draft");
       setPhotos([]);
       setVideo(null);
@@ -248,6 +252,7 @@ export default function ProductosPage() {
     setEditSizes(Array.isArray(product.sizes) ? product.sizes.join(", ") : "");
     setEditColors(Array.isArray(product.colors) ? product.colors.join(", ") : "");
     setEditShippingMethods(Array.isArray(product.shippingMethods) ? product.shippingMethods : []);
+    setEditAllowCashOnDelivery(product.allowCashOnDelivery !== false);
     setEditActive(Boolean(product.isActive));
     setEditPhotos([]);
     setEditVideo(null);
@@ -265,6 +270,7 @@ export default function ProductosPage() {
       setEditSizes(Array.isArray(detail.sizes) ? detail.sizes.join(", ") : "");
       setEditColors(Array.isArray(detail.colors) ? detail.colors.join(", ") : "");
       setEditShippingMethods(Array.isArray(detail.shippingMethods) ? detail.shippingMethods : []);
+      setEditAllowCashOnDelivery(detail.allowCashOnDelivery !== false);
       setEditActive(Boolean(detail.isActive));
     } catch (err) {
       setError(
@@ -299,6 +305,7 @@ export default function ProductosPage() {
           .map((v) => v.trim())
           .filter(Boolean),
         shippingMethods: editShippingMethods,
+        allowCashOnDelivery: editAllowCashOnDelivery,
         isActive: editActive,
       };
 
@@ -486,6 +493,10 @@ export default function ProductosPage() {
                   onChange={(e) => setColors(e.target.value)}
                   placeholder="Negro, blanco, azul"
                 />
+              </label>
+              <label className="field field-wide">
+                <span>Pago contra entrega</span>
+                <span><input type="checkbox" checked={allowCashOnDelivery} onChange={(e) => setAllowCashOnDelivery(e.target.checked)} /> Permitir que este producto se pague contra entrega</span>
               </label>
               <div className="field field-wide">
                 <strong>Métodos de envío</strong>
@@ -875,6 +886,10 @@ export default function ProductosPage() {
                       value={editColors}
                       onChange={(e) => setEditColors(e.target.value)}
                     />
+                  </label>
+                  <label className="field field-wide">
+                    <span>Pago contra entrega</span>
+                    <span><input type="checkbox" checked={editAllowCashOnDelivery} onChange={(e) => setEditAllowCashOnDelivery(e.target.checked)} /> Permitir que este producto se pague contra entrega</span>
                   </label>
                   <div className="field field-wide">
                     <strong>Métodos de envío</strong>
