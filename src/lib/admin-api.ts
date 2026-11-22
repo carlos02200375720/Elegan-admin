@@ -62,6 +62,7 @@ export type Product = {
   sizes?: string[];
   colors?: string[];
   shippingMethods?: ShippingMethod[];
+  allowCashOnDelivery?: boolean;
   imageUrl?: string;
   images?: string[];
   videoUrl?: string;
@@ -805,4 +806,34 @@ export async function getOrderProof(orderId: string, token: string, onUnauthoriz
     throw new AdminApiError("No se pudo abrir el comprobante del pedido.", response.status);
   }
   return response.blob();
+}
+
+
+export type CashOnDeliveryConfig = {
+  enabled: boolean;
+  message: string;
+  termsVersion?: string;
+};
+
+export async function getCashOnDeliveryConfig(
+  token: string,
+  onUnauthorized?: () => void
+): Promise<CashOnDeliveryConfig> {
+  return adminFetch<CashOnDeliveryConfig>("/api/admin/cash-on-delivery", {
+    token,
+    onUnauthorized,
+  });
+}
+
+export async function updateCashOnDeliveryConfig(
+  payload: Pick<CashOnDeliveryConfig, "enabled" | "message">,
+  token: string,
+  onUnauthorized?: () => void
+): Promise<CashOnDeliveryConfig> {
+  return adminFetch<CashOnDeliveryConfig>("/api/admin/cash-on-delivery", {
+    method: "PUT",
+    token,
+    onUnauthorized,
+    body: JSON.stringify(payload),
+  });
 }
