@@ -1,7 +1,60 @@
 export const TOKEN_STORAGE_KEY = "elegan_admin_token";
+export const PREVIEW_COOKIE_BLOCKED_EVENT = "elegan:preview-cookie-blocked";
+export const PREVIEW_COOKIE_CLEARED_EVENT = "elegan:preview-cookie-cleared";
+
+let runtimeApiBase = "";
+let preferDirectBackend = false;
+
+function normalizeApiBase(raw?: string): string {
+  const trimmed = (raw ?? "").trim();
+  if (!/^https?:\/\//i.test(trimmed)) return "";
+  return trimmed
+    .replace(/\/+$/, "")
+    .replace(/\/api\/admin$/i, "")
+    .replace(/\/api$/i, "");
+}
+
+export function setRuntimeApiBase(url?: string): void {
+  const normalized = normalizeApiBase(url);
+  if (normalized) {
+    runtimeApiBase = normalized;
+  }
+}
 
 export function getApiBase(): string {
-  return process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "";
+  return runtimeApiBase || normalizeApiBase(process.env.NEXT_PUBLIC_API_BASE_URL);
+}
+
+export function isPreviewCookieCheckError(err: unknown): boolean {
+  if (!(err instanceof AdminApiError)) return false;
+  if (!err.detail || typeof err.detail !== "object") return false;
+  return Boolean((err.detail as Record<string, unknown>).cookieCheck);
+}
+
+let previewCookieBlocked = false;
+
+export function isPreviewCookieBlocked(): boolean {
+  return previewCookieBlocked;
+}
+
+function emitPreviewCookieEvent(name: string): void {
+  previewCookieBlocked = name === PREVIEW_COOKIE_BLOCKED_EVENT;
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(name));
+}
+
+export async function requestPreviewStorageAccess(): Promise<boolean> {
+  if (typeof document === "undefined") return false;
+  const doc = document as Document & {
+    requestStorageAccess?: () => Promise<void>;
+  };
+  if (typeof doc.requestStorageAccess !== "function") return false;
+  try {
+    await doc.requestStorageAccess();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function getStoredToken(): string {
@@ -288,6 +341,61 @@ function safeUrlPath(rawUrl: string): string {
   }
 }
 
+function parseResponseBody(text: string): unknown {
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+async function fetchDirectBackend<T>(
+  apiBase: string,
+  path: string,
+  init: RequestInit,
+  requestHeaders: Headers,
+  onUnauthorized?: () => void
+): Promise<{ ok: true; data: T } | { ok: false; apiError?: AdminApiError }> {
+  const directUrl = `${apiBase}${path.startsWith("/") ? path : `/${path}`}`;
+  let response: Response;
+  try {
+    response = await fetch(directUrl, {
+      ...init,
+      headers: requestHeaders,
+      mode: "cors",
+      credentials: "omit",
+      cache: "no-store",
+    });
+  } catch {
+    return { ok: false };
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  const text = await response.text();
+  const parsed = parseResponseBody(text);
+
+  if (response.ok && isHtmlPayload(contentType, text)) {
+    return { ok: false };
+  }
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      onUnauthorized?.();
+    }
+    return {
+      ok: false,
+      apiError: new AdminApiError(
+        extractErrorMessage(parsed, response.status),
+        response.status,
+        parsed
+      ),
+    };
+  }
+
+  return { ok: true, data: (parsed ?? {}) as T };
+}
+
 export async function adminFetch<T>(
   path: string,
   options: RequestInit & { token?: string; onUnauthorized?: () => void } = {}
@@ -302,6 +410,27 @@ export async function adminFetch<T>(
     requestHeaders.set("Content-Type", "application/json");
   }
 
+  const apiBase = getApiBase();
+  if (preferDirectBackend && apiBase) {
+    const direct = await fetchDirectBackend<T>(
+      apiBase,
+      path,
+      init,
+      requestHeaders,
+      onUnauthorized
+    );
+    if (direct.ok) {
+      emitPreviewCookieEvent(PREVIEW_COOKIE_CLEARED_EVENT);
+      return direct.data;
+    }
+    if (direct.apiError) {
+      throw direct.apiError;
+    }
+    preferDirectBackend = false;
+  }
+
+  let triedStorageAccess = false;
+
   for (let attempt = 0; attempt < 3; attempt++) {
     let response: Response;
     try {
@@ -313,6 +442,23 @@ export async function adminFetch<T>(
         cache: "no-store",
       });
     } catch (fetchErr) {
+      if (apiBase) {
+        const direct = await fetchDirectBackend<T>(
+          apiBase,
+          path,
+          init,
+          requestHeaders,
+          onUnauthorized
+        );
+        if (direct.ok) {
+          preferDirectBackend = true;
+          emitPreviewCookieEvent(PREVIEW_COOKIE_CLEARED_EVENT);
+          return direct.data;
+        }
+        if (direct.apiError) {
+          throw direct.apiError;
+        }
+      }
       const reason =
         fetchErr instanceof Error && fetchErr.message ? ` (${fetchErr.message})` : "";
       throw new AdminApiError(
@@ -328,14 +474,7 @@ export async function adminFetch<T>(
     const fromNextProxy = response.headers.get("x-admin-proxy") === "next-route";
     const contentType = response.headers.get("content-type") ?? "";
     const text = await response.text();
-    let parsed: unknown = null;
-    if (text) {
-      try {
-        parsed = JSON.parse(text);
-      } catch {
-        parsed = text;
-      }
-    }
+    const parsed = parseResponseBody(text);
 
     if (response.ok && isHtmlPayload(contentType, text)) {
       const title = extractHtmlTitle(text);
@@ -349,8 +488,37 @@ export async function adminFetch<T>(
         !fromNextProxy &&
         (/__cookie_check\.html/i.test(finalPath) || /cookie check/i.test(title));
       if (isCookieCheck) {
+        if (!triedStorageAccess) {
+          triedStorageAccess = true;
+          const granted = await requestPreviewStorageAccess();
+          if (granted) {
+            continue;
+          }
+        }
+
+        if (apiBase) {
+          const direct = await fetchDirectBackend<T>(
+            apiBase,
+            path,
+            init,
+            requestHeaders,
+            onUnauthorized
+          );
+          if (direct.ok) {
+            preferDirectBackend = true;
+            emitPreviewCookieEvent(PREVIEW_COOKIE_CLEARED_EVENT);
+            return direct.data;
+          }
+          if (direct.apiError) {
+            preferDirectBackend = true;
+            emitPreviewCookieEvent(PREVIEW_COOKIE_CLEARED_EVENT);
+            throw direct.apiError;
+          }
+        }
+
+        emitPreviewCookieEvent(PREVIEW_COOKIE_BLOCKED_EVENT);
         throw new AdminApiError(
-          "La vista previa bloqueó la petición porque falta renovar la cookie de seguridad del iframe (/__cookie_check.html). Recarga la vista previa o abre la app en una pestaña nueva e intenta nuevamente.",
+          "La vista previa bloqueó la petición porque falta renovar la cookie de seguridad del iframe (/__cookie_check.html). Abre la app en una pestaña nueva o permite las cookies de la vista previa e intenta nuevamente.",
           401,
           {
             previewHtml: true,
@@ -387,6 +555,7 @@ export async function adminFetch<T>(
       );
     }
 
+    emitPreviewCookieEvent(PREVIEW_COOKIE_CLEARED_EVENT);
     return (parsed ?? {}) as T;
   }
 
@@ -952,15 +1121,64 @@ export async function reviewTransferPayment(orderId: string, approved: boolean, 
 }
 
 export async function getOrderProof(orderId: string, token: string, onUnauthorized?: () => void): Promise<Blob> {
+  const proofPath = `/api/admin/orders/${encodeURIComponent(orderId)}/proof`;
+  const apiBase = getApiBase();
+
+  const tryDirect = async (): Promise<Blob | null> => {
+    if (!apiBase) return null;
+    try {
+      const directRes = await fetch(`${apiBase}${proofPath}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        mode: "cors",
+        credentials: "omit",
+        cache: "no-store",
+      });
+      if (!directRes.ok) {
+        if (directRes.status === 401 || directRes.status === 403) onUnauthorized?.();
+        throw new AdminApiError("No se pudo abrir el comprobante del pedido.", directRes.status);
+      }
+      const ct = directRes.headers.get("content-type") ?? "";
+      if (/text\/html/i.test(ct)) return null;
+      preferDirectBackend = true;
+      emitPreviewCookieEvent(PREVIEW_COOKIE_CLEARED_EVENT);
+      return directRes.blob();
+    } catch (err) {
+      if (err instanceof AdminApiError) throw err;
+      return null;
+    }
+  };
+
+  if (preferDirectBackend && apiBase) {
+    const blob = await tryDirect();
+    if (blob) return blob;
+  }
+
   let response: Response;
   try {
-    response = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/proof`, {
+    response = await fetch(proofPath, {
       headers: { Authorization: `Bearer ${token}` },
+      credentials: "include",
       cache: "no-store",
     });
   } catch {
+    const blob = await tryDirect();
+    if (blob) return blob;
     throw new AdminApiError("No se pudo cargar el comprobante.", 0);
   }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  const finalPath = safeUrlPath(response.url);
+  if (response.ok && (/text\/html/i.test(contentType) || /__cookie_check\.html/i.test(finalPath))) {
+    const blob = await tryDirect();
+    if (blob) return blob;
+    emitPreviewCookieEvent(PREVIEW_COOKIE_BLOCKED_EVENT);
+    throw new AdminApiError(
+      "La vista previa bloqueó la descarga del comprobante (/__cookie_check.html). Abre la app en una pestaña nueva e intenta nuevamente.",
+      401,
+      { previewHtml: true, cookieCheck: true }
+    );
+  }
+
   if (!response.ok) {
     if (response.status === 401 || response.status === 403) onUnauthorized?.();
     throw new AdminApiError("No se pudo abrir el comprobante del pedido.", response.status);

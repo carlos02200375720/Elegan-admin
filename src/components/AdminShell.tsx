@@ -21,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import { useAdminAuth } from "./AdminAuthProvider";
+import { PreviewCookieBanner } from "./PreviewCookieBanner";
 
 const NAV_ITEMS = [
   { href: "/", label: "Resumen", icon: LayoutDashboard },
@@ -153,6 +154,7 @@ export function AdminShell({ title, subtitle, actions, children }: AdminShellPro
         </header>
 
         <main className="workspace-content">
+          <PreviewCookieBanner />
           {subtitle && <p className="page-subtitle">{subtitle}</p>}
           {children}
         </main>

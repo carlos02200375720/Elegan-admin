@@ -16,7 +16,8 @@ export function SafeImage({
   className = "thumb-media",
   fallbackLabel = "Sin imagen",
 }: SafeImageProps) {
-  const [failed, setFailed] = useState(false);
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const failed = Boolean(src && failedSrc === src);
 
   if (!src || failed) {
     return (
@@ -33,7 +34,7 @@ export function SafeImage({
       alt={alt}
       className={className}
       referrerPolicy="no-referrer"
-      onError={() => setFailed(true)}
+      onError={() => setFailedSrc(src)}
     />
   );
 }

@@ -16,11 +16,14 @@ import {
   clearStoredToken,
   fetchAuthMe,
   getStoredToken,
+  isPreviewCookieCheckError,
   loginWithGoogleCredential,
   loginWithPassword,
   logoutAdminSession,
+  setRuntimeApiBase,
   setStoredToken,
 } from "@/lib/admin-api";
+import { PreviewCookieBanner } from "@/components/PreviewCookieBanner";
 
 type AdminAuthContextValue = {
   token: string;
@@ -60,7 +63,16 @@ declare global {
   }
 }
 
-export function AdminAuthProvider({ children }: { children: ReactNode }) {
+export function AdminAuthProvider({
+  children,
+  runtimeApiBase,
+}: {
+  children: ReactNode;
+  runtimeApiBase?: string;
+}) {
+  if (runtimeApiBase) {
+    setRuntimeApiBase(runtimeApiBase);
+  }
   const [token, setToken] = useState("");
   const [user, setUser] = useState<AdminUser | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
@@ -99,14 +111,19 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         setUser(me);
         setAuthError("");
       } catch (err) {
-        clearStoredToken();
-        setToken("");
-        setUser(null);
-        setAuthError(
-          err instanceof Error
-            ? err.message
-            : "No se pudo validar la sesión administrativa."
-        );
+        if (isPreviewCookieCheckError(err)) {
+          setToken(authToken);
+          setAuthError("");
+        } else {
+          clearStoredToken();
+          setToken("");
+          setUser(null);
+          setAuthError(
+            err instanceof Error
+              ? err.message
+              : "No se pudo validar la sesión administrativa."
+          );
+        }
       } finally {
         setCheckingSession(false);
       }
@@ -337,6 +354,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
               {authError}
             </p>
           )}
+          <PreviewCookieBanner onResolved={() => setAuthError("")} />
         </section>
       </main>
     );

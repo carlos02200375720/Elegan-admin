@@ -30,13 +30,16 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: Readonly<{ children: ReactNode }>) {
+  const runtimeApiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
   return (
     <html
       lang="es"
       className={`${plusJakarta.variable} ${dmSans.variable} ${jetbrainsMono.variable}`}
     >
       <body>
-        <AdminAuthProvider>{children}</AdminAuthProvider>
+        <AdminAuthProvider runtimeApiBase={runtimeApiBase}>
+          {children}
+        </AdminAuthProvider>
       </body>
     </html>
   );

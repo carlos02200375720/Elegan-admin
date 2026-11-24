@@ -1,12 +1,13 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { Pencil, Plus, Search, X } from "lucide-react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ImagePlus, Pencil, Plus, RotateCcw, Search, X } from "lucide-react";
 import { AdminShell } from "@/components/AdminShell";
 import { useAdminAuth } from "@/components/AdminAuthProvider";
 import { DeleteConfirmButton } from "@/components/DeleteConfirmButton";
 import { SafeImage } from "@/components/SafeImage";
 import { ToggleSwitch } from "@/components/ToggleSwitch";
+import { PreviewCookieBanner } from "@/components/PreviewCookieBanner";
 import {
   Category,
   createProductItem,
@@ -63,6 +64,18 @@ function parseShippingMethods(methods: ShippingMethodDraft[]): ShippingMethod[] 
   return parsed;
 }
 
+function getProductImages(product: Product | null): string[] {
+  if (!product) return [];
+  const list = Array.isArray(product.images)
+    ? product.images
+        .map((url) => (typeof url === "string" ? url.trim() : ""))
+        .filter(Boolean)
+    : [];
+  if (list.length > 0) return list;
+  const cover = typeof product.imageUrl === "string" ? product.imageUrl.trim() : "";
+  return cover ? [cover] : [];
+}
+
 export default function ProductosPage() {
   const { token, handleUnauthorized } = useAdminAuth();
   const [products, setProducts] = useState<Product[]>([]);
@@ -105,9 +118,12 @@ export default function ProductosPage() {
   const [editShippingMethods, setEditShippingMethods] = useState<ShippingMethodDraft[]>([]);
   const [editAllowCashOnDelivery, setEditAllowCashOnDelivery] = useState(true);
   const [editActive, setEditActive] = useState(false);
+  const [editExistingImages, setEditExistingImages] = useState<string[]>([]);
   const [editPhotos, setEditPhotos] = useState<File[]>([]);
   const [editVideo, setEditVideo] = useState<File | null>(null);
+  const [editError, setEditError] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
+  const editPhotosInputRef = useRef<HTMLInputElement | null>(null);
 
   const loadData = useCallback(async () => {
     if (!token) return;
@@ -156,6 +172,21 @@ export default function ProductosPage() {
       if (videoPreviewUrl) URL.revokeObjectURL(videoPreviewUrl);
     };
   }, [videoPreviewUrl]);
+
+  const editPhotoPreviews = useMemo(
+    () =>
+      editPhotos.map((file) => ({
+        file,
+        url: URL.createObjectURL(file),
+      })),
+    [editPhotos]
+  );
+
+  useEffect(() => {
+    return () => {
+      editPhotoPreviews.forEach((item) => URL.revokeObjectURL(item.url));
+    };
+  }, [editPhotoPreviews]);
 
   function formatFileSize(bytes: number): string {
     if (bytes < 1024 * 1024) {
@@ -284,6 +315,39 @@ export default function ProductosPage() {
     }
   }
 
+  function closeEditDrawer() {
+    setEditingProduct(null);
+    setEditExistingImages([]);
+    setEditPhotos([]);
+    setEditVideo(null);
+    setEditError("");
+  }
+
+  function selectEditPhotos(event: ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(event.target.files ?? []);
+    if (selected.length > 0) {
+      setEditPhotos((current) => [...current, ...selected]);
+      setEditError("");
+    }
+    event.target.value = "";
+  }
+
+  function removeEditExistingImageAt(index: number) {
+    setEditExistingImages((current) => current.filter((_, idx) => idx !== index));
+    setEditError("");
+  }
+
+  function removeEditNewPhotoAt(index: number) {
+    setEditPhotos((current) => current.filter((_, idx) => idx !== index));
+    setEditError("");
+  }
+
+  function restoreEditExistingImages() {
+    if (!editingProduct) return;
+    setEditExistingImages(getProductImages(editingProduct));
+    setEditError("");
+  }
+
   async function openEditDrawer(product: Product) {
     setEditingProduct(product);
     setEditName(product.name);
@@ -296,8 +360,10 @@ export default function ProductosPage() {
     setEditShippingMethods(toShippingMethodDrafts(product.shippingMethods));
     setEditAllowCashOnDelivery(product.allowCashOnDelivery !== false);
     setEditActive(Boolean(product.isActive));
+    setEditExistingImages(getProductImages(product));
     setEditPhotos([]);
     setEditVideo(null);
+    setEditError("");
 
     if (!token) return;
     setLoadingDetail(true);
@@ -314,12 +380,14 @@ export default function ProductosPage() {
       setEditShippingMethods(toShippingMethodDrafts(detail.shippingMethods));
       setEditAllowCashOnDelivery(detail.allowCashOnDelivery !== false);
       setEditActive(Boolean(detail.isActive));
+      setEditExistingImages(getProductImages(detail));
     } catch (err) {
-      setError(
+      const message =
         err instanceof Error
           ? err.message
-          : "No se pudo consultar el detalle completo del producto."
-      );
+          : "No se pudo consultar el detalle completo del producto.";
+      setEditError(message);
+      setError(message);
     } finally {
       setLoadingDetail(false);
     }
@@ -330,10 +398,11 @@ export default function ProductosPage() {
     if (!token || !editingProduct) return;
     const parsedEditShippingMethods = parseShippingMethods(editShippingMethods);
     if (!parsedEditShippingMethods) {
-      setError("Completa todos los métodos de envío con un precio válido.");
+      setEditError("Completa todos los métodos de envío con un precio válido.");
       return;
     }
     setSavingEdit(true);
+    setEditError("");
     setError("");
     setNotice("");
     try {
@@ -356,14 +425,20 @@ export default function ProductosPage() {
         isActive: editActive,
       };
 
-      if (editPhotos.length > 0) {
-        const uploaded = [];
+      const originalImages = getProductImages(editingProduct);
+      const existingChanged =
+        editExistingImages.length !== originalImages.length ||
+        editExistingImages.some((url, idx) => url !== originalImages[idx]);
+
+      if (existingChanged || editPhotos.length > 0) {
+        const uploadedUrls: string[] = [];
         for (const file of editPhotos) {
-          uploaded.push(await uploadAdminMedia(file, token, handleUnauthorized));
+          const uploaded = await uploadAdminMedia(file, token, handleUnauthorized);
+          uploadedUrls.push(uploaded.url);
         }
-        const urls = uploaded.map((item) => item.url);
-        payload.imageUrl = urls[0];
-        payload.images = urls;
+        const finalImages = [...editExistingImages, ...uploadedUrls];
+        payload.images = finalImages;
+        payload.imageUrl = finalImages[0] ?? "";
       }
 
       if (editVideo) {
@@ -374,10 +449,13 @@ export default function ProductosPage() {
 
       await updateProductItem(editingProduct.id, payload, token, handleUnauthorized);
       setNotice(`Producto "${editName.trim()}" actualizado correctamente.`);
-      setEditingProduct(null);
+      closeEditDrawer();
       await loadData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo actualizar el producto.");
+      const message =
+        err instanceof Error ? err.message : "No se pudo actualizar el producto.";
+      setEditError(message);
+      setError(message);
     } finally {
       setSavingEdit(false);
     }
@@ -391,7 +469,7 @@ export default function ProductosPage() {
     try {
       await deleteProductItem(product.id, token, handleUnauthorized);
       setProducts((current) => current.filter((item) => item.id !== product.id));
-      if (editingProduct?.id === product.id) setEditingProduct(null);
+      if (editingProduct?.id === product.id) closeEditDrawer();
       setNotice(`Producto "${product.name}" eliminado.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo eliminar el producto.");
@@ -841,32 +919,147 @@ export default function ProductosPage() {
                 type="button"
                 className="icon-button"
                 aria-label="Cerrar panel"
-                onClick={() => setEditingProduct(null)}
+                onClick={closeEditDrawer}
               >
                 <X size={18} />
               </button>
             </div>
 
+            {editError && (
+              <p className="message error" role="alert">
+                {editError}
+              </p>
+            )}
+            <PreviewCookieBanner onResolved={() => setEditError("")} />
+
             {loadingDetail ? (
               <p className="muted">Cargando detalle completo del producto...</p>
             ) : (
               <form className="admin-form" style={{ paddingTop: 0 }} onSubmit={handleSaveEdit}>
-                {(editingProduct.images?.length || editingProduct.imageUrl) && (
-                  <div className="media-strip">
-                    {(editingProduct.images && editingProduct.images.length > 0
-                      ? editingProduct.images
-                      : editingProduct.imageUrl
-                        ? [editingProduct.imageUrl]
-                        : []
-                    ).map((url, idx) => (
-                      <SafeImage
-                        key={`${url}-${idx}`}
-                        src={url}
-                        alt={`${editingProduct.name} imagen ${idx + 1}`}
+                <div className="media-manager">
+                  <div className="media-manager-head">
+                    <div className="media-manager-title">
+                      <strong>Imágenes del producto</strong>
+                      <small className="muted-sm tabular">
+                        {editExistingImages.length + editPhotoPreviews.length} imagen(es) en total
+                        {editPhotoPreviews.length > 0
+                          ? ` · ${editExistingImages.length} actual(es), ${editPhotoPreviews.length} nueva(s)`
+                          : ""}
+                      </small>
+                    </div>
+                    <div className="media-manager-actions">
+                      {editExistingImages.length < getProductImages(editingProduct).length && (
+                        <button
+                          type="button"
+                          className="button-secondary"
+                          disabled={savingEdit}
+                          onClick={restoreEditExistingImages}
+                        >
+                          <RotateCcw size={14} />
+                          <span>Restaurar actuales</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="button-secondary"
+                        disabled={savingEdit}
+                        onClick={() => editPhotosInputRef.current?.click()}
+                      >
+                        <ImagePlus size={15} />
+                        <span>Agregar imágenes</span>
+                      </button>
+                      <input
+                        ref={editPhotosInputRef}
+                        id="edit-product-photos"
+                        type="file"
+                        className="sr-only-input"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        multiple
+                        disabled={savingEdit}
+                        onChange={selectEditPhotos}
                       />
-                    ))}
+                    </div>
                   </div>
-                )}
+
+                  {editExistingImages.length === 0 && editPhotoPreviews.length === 0 ? (
+                    <div className="media-empty-box">
+                      Este producto no tiene imágenes. Usa &ldquo;Agregar imágenes&rdquo; para subir las que necesites.
+                    </div>
+                  ) : (
+                    <div
+                      className="media-preview-grid"
+                      aria-label="Galería de imágenes del producto"
+                    >
+                      {editExistingImages.map((url, idx) => (
+                        <div className="media-preview-card" key={`existing-${url}-${idx}`}>
+                          <div className="media-preview-frame">
+                            <SafeImage
+                              src={url}
+                              alt={`${editingProduct.name} imagen ${idx + 1}`}
+                              className="media-preview-img"
+                            />
+                            <button
+                              type="button"
+                              className="media-preview-remove"
+                              title="Eliminar imagen"
+                              aria-label={`Eliminar imagen actual ${idx + 1}`}
+                              onClick={() => removeEditExistingImageAt(idx)}
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                          <div className="media-preview-caption">
+                            <span className="media-preview-name">
+                              {idx === 0 ? "Portada" : `Imagen ${idx + 1}`}
+                            </span>
+                            <span className="media-preview-meta">Actual</span>
+                          </div>
+                        </div>
+                      ))}
+
+                      {editPhotoPreviews.map((item, idx) => {
+                        const isCover = editExistingImages.length === 0 && idx === 0;
+                        return (
+                          <div
+                            className="media-preview-card"
+                            key={`new-${item.file.name}-${item.file.size}-${idx}`}
+                          >
+                            <div className="media-preview-frame">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={item.url}
+                                alt={`Nueva imagen: ${item.file.name}`}
+                                className="media-preview-img"
+                              />
+                              <button
+                                type="button"
+                                className="media-preview-remove"
+                                title="Quitar imagen"
+                                aria-label={`Quitar nueva imagen ${item.file.name}`}
+                                onClick={() => removeEditNewPhotoAt(idx)}
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                            <div className="media-preview-caption">
+                              <span className="media-preview-name" title={item.file.name}>
+                                {item.file.name}
+                              </span>
+                              <span className="media-preview-meta tabular">
+                                {isCover ? "Portada · " : ""}
+                                Nueva · {formatFileSize(item.file.size)}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <small className="muted-sm">
+                    Elimina las imágenes que no quieras conservar y agrega todas las nuevas que desees. La primera imagen se mostrará como portada al guardar.
+                  </small>
+                </div>
 
                 <div className="form-grid">
                   <label className="field field-wide">
@@ -977,22 +1170,6 @@ export default function ProductosPage() {
                     />
                   </label>
                   <label className="field field-wide">
-                    Reemplazar fotografías (opcional)
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,image/gif"
-                      multiple
-                      onChange={(e) =>
-                        setEditPhotos(Array.from(e.target.files ?? []).slice(0, 10))
-                      }
-                    />
-                    <small>
-                      {editPhotos.length
-                        ? `${editPhotos.length} fotografía(s) nueva(s) lista(s) para subir.`
-                        : "Deja vacío para conservar las imágenes actuales."}
-                    </small>
-                  </label>
-                  <label className="field field-wide">
                     Reemplazar video (opcional)
                     <input
                       type="file"
@@ -1013,7 +1190,7 @@ export default function ProductosPage() {
                   <button
                     type="button"
                     className="button-secondary"
-                    onClick={() => setEditingProduct(null)}
+                    onClick={closeEditDrawer}
                   >
                     Cancelar
                   </button>
