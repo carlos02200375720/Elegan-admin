@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AdminShell } from "@/components/AdminShell";
 import { useAdminAuth } from "@/components/AdminAuthProvider";
+import { DeleteConfirmButton } from "@/components/DeleteConfirmButton";
 import { adminFetch } from "@/lib/admin-api";
 
 type Report = {
@@ -46,7 +47,7 @@ export default function ModeracionPage() {
   useEffect(() => { void load(); }, [load]);
 
   async function deleteReportedComment(report: Report) {
-    if (!token || !window.confirm("¿Eliminar este comentario de las publicaciones?")) return;
+    if (!token) return;
     setBusyId(report.id);
     setError("");
     setNotice("");
@@ -119,7 +120,11 @@ export default function ModeracionPage() {
                   <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                     <button type="button" className="button-primary" disabled={busyId === report.id} onClick={() => void changeStatus(report, "reviewed")}>Marcar revisado</button>
                     <button type="button" className="button-secondary" disabled={busyId === report.id} onClick={() => void changeStatus(report, "dismissed")}>Descartar</button>
-                    <button type="button" className="button-secondary" disabled={busyId === report.id || !report.commentText} onClick={() => void deleteReportedComment(report)}>Eliminar comentario</button>
+                    <DeleteConfirmButton
+                      label="Eliminar comentario"
+                      disabled={busyId === report.id || !report.commentText}
+                      onConfirm={() => deleteReportedComment(report)}
+                    />
                   </div>
                 )}
               </article>

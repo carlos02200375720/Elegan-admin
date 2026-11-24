@@ -60,7 +60,10 @@ async function proxyRequest(
   const method = request.method.toUpperCase();
   let bodyBuffer: ArrayBuffer | undefined;
   if (method !== "GET" && method !== "HEAD") {
-    bodyBuffer = await request.arrayBuffer();
+    const rawBuffer = await request.arrayBuffer();
+    if (rawBuffer.byteLength > 0) {
+      bodyBuffer = rawBuffer;
+    }
   }
 
   try {

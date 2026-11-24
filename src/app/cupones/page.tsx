@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Plus, Ticket } from "lucide-react";
 import { AdminShell } from "@/components/AdminShell";
 import { useAdminAuth } from "@/components/AdminAuthProvider";
+import { DeleteConfirmButton } from "@/components/DeleteConfirmButton";
 import {
   Coupon,
   createCouponItem,
@@ -82,9 +83,10 @@ export default function CuponesPage() {
   }
 
   async function remove(item: Coupon) {
-    if (!token || !window.confirm(`¿Eliminar el cupón ${item.code}?`)) return;
+    if (!token) return;
     setBusyCode(item.code);
     setError("");
+    setNotice("");
     try {
       await deleteCouponItem(item.code, token, handleUnauthorized);
       setItems(current => current.filter(row => row.code !== item.code));
@@ -144,7 +146,7 @@ export default function CuponesPage() {
               </div>
               <div className="row-actions">
                 <button type="button" className="button-secondary" disabled={busyCode === item.code} onClick={() => void toggle(item)}>{item.isActive ? "Desactivar" : "Activar"}</button>
-                <button type="button" className="button-danger" disabled={busyCode === item.code} onClick={() => void remove(item)}>Eliminar</button>
+                <DeleteConfirmButton disabled={busyCode === item.code} onConfirm={() => remove(item)} />
               </div>
             </article>)}
           </div>

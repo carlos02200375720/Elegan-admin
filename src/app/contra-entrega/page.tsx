@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { AdminShell } from "@/components/AdminShell";
 import { useAdminAuth } from "@/components/AdminAuthProvider";
+import { ToggleSwitch } from "@/components/ToggleSwitch";
 import {
   CashOnDeliveryConfig,
   getCashOnDeliveryConfig,
@@ -57,21 +58,44 @@ export default function ContraEntregaPage() {
       title="Pago contra entrega"
       subtitle="Controla la disponibilidad del método y el mensaje que verá el cliente en la aplicación móvil."
     >
+      {error && (
+        <p className="message error" role="alert">
+          {error}
+        </p>
+      )}
+      {notice && (
+        <p className="message success" role="status">
+          {notice}
+        </p>
+      )}
+
       <section className="panel">
         <div className="panel-header">
           <h2>Configuración del método</h2>
+          {!loading && (
+            <span className={`status-text ${enabled ? "status-success" : "status-muted"}`}>
+              {enabled ? "Disponible en la app" : "Desactivado"}
+            </span>
+          )}
         </div>
-        {loading ? <p>Cargando configuración...</p> : (
+
+        {loading ? (
+          <div style={{ paddingTop: 16 }}>
+            <div className="skeleton-row" />
+            <div className="skeleton-row" />
+          </div>
+        ) : (
           <form className="admin-form" onSubmit={save}>
+            <ToggleSwitch
+              checked={enabled}
+              onChange={setEnabled}
+              title="Disponibilidad global"
+              description="Permitir que los clientes elijan pago contra entrega al finalizar su pedido en la aplicación."
+              disabled={saving}
+            />
+
             <label className="field">
-              <span>Disponibilidad global</span>
-              <span className="checkbox-field">
-                <input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} />
-                Permitir pago contra entrega en la aplicación
-              </span>
-            </label>
-            <label className="field">
-              <span>Mensaje para el cliente</span>
+              <span>Mensaje y condiciones para el cliente</span>
               <textarea
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
@@ -80,20 +104,20 @@ export default function ContraEntregaPage() {
                 required
                 placeholder="Escribe las condiciones e indicaciones para el cliente."
               />
-              <small>{message.length}/3000 caracteres</small>
+              <small className="tabular">{message.length} / 3000 caracteres</small>
             </label>
-            {error && <p className="message error">{error}</p>}
-            {notice && <p className="message success">{notice}</p>}
+
             <div className="form-actions">
               <button className="button-primary" type="submit" disabled={saving || !message.trim()}>
                 {saving ? "Guardando..." : "Guardar configuración"}
               </button>
             </div>
+
+            <p className="info-note">
+              El pago contra entrega solo aparecerá disponible en la compra cuando esté activado aquí y todos los productos del carrito permitan este método.
+            </p>
           </form>
         )}
-      </section>
-      <section className="panel">
-        <p>El método solo estará disponible cuando esté activado aquí y todos los productos seleccionados para el pedido permitan pago contra entrega.</p>
       </section>
     </AdminShell>
   );

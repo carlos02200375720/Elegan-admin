@@ -6,6 +6,7 @@ import { AdminShell } from "@/components/AdminShell";
 import { useAdminAuth } from "@/components/AdminAuthProvider";
 import { DeleteConfirmButton } from "@/components/DeleteConfirmButton";
 import { SafeImage } from "@/components/SafeImage";
+import { ToggleSwitch } from "@/components/ToggleSwitch";
 import {
   Category,
   createProductItem,
@@ -494,10 +495,14 @@ export default function ProductosPage() {
                   placeholder="Negro, blanco, azul"
                 />
               </label>
-              <label className="field field-wide">
-                <span>Pago contra entrega</span>
-                <span><input type="checkbox" checked={allowCashOnDelivery} onChange={(e) => setAllowCashOnDelivery(e.target.checked)} /> Permitir que este producto se pague contra entrega</span>
-              </label>
+              <div className="field-wide">
+                <ToggleSwitch
+                  checked={allowCashOnDelivery}
+                  onChange={setAllowCashOnDelivery}
+                  title="Pago contra entrega"
+                  description="Permitir que este producto se pague al momento de la entrega."
+                />
+              </div>
               <div className="field field-wide">
                 <strong>Métodos de envío</strong>
                 <small>Configura las opciones que el cliente podrá elegir. Cada método incluye precio, entrega y origen.</small>
@@ -887,10 +892,14 @@ export default function ProductosPage() {
                       onChange={(e) => setEditColors(e.target.value)}
                     />
                   </label>
-                  <label className="field field-wide">
-                    <span>Pago contra entrega</span>
-                    <span><input type="checkbox" checked={editAllowCashOnDelivery} onChange={(e) => setEditAllowCashOnDelivery(e.target.checked)} /> Permitir que este producto se pague contra entrega</span>
-                  </label>
+                  <div className="field-wide">
+                    <ToggleSwitch
+                      checked={editAllowCashOnDelivery}
+                      onChange={setEditAllowCashOnDelivery}
+                      title="Pago contra entrega"
+                      description="Permitir que este producto se pague al momento de la entrega."
+                    />
+                  </div>
                   <div className="field field-wide">
                     <strong>Métodos de envío</strong>
                     <small>El cliente podrá elegir una de estas opciones antes de comprar.</small>
