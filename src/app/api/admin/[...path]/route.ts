@@ -34,13 +34,49 @@ function resolveBackendBase(): { base: string; error?: string } {
   return { base: normalized };
 }
 
+function isPreviewNginxProxy(request: NextRequest): boolean {
+  const forwardedHost = request.headers.get("x-forwarded-host") ?? "";
+  return (
+    process.env.NODE_ENV !== "production" ||
+    /^ais-(dev|pre)-/i.test(forwardedHost)
+  );
+}
+
+function safeProxyStatus(status: number, previewProxy: boolean): number {
+  if (!previewProxy) return status;
+  // El Nginx del entorno de vista previa intercepta 502/503/504 y los convierte en
+  // HTTP 200 OK con /warmup.html, y reemplaza 403 por HTML sin cuerpo JSON.
+  if (status === 502 || status === 503 || status === 504) return 500;
+  if (status === 403) return 401;
+  return status;
+}
+
+function jsonProxyError(
+  detail: string,
+  upstreamStatus: number,
+  previewProxy: boolean
+): NextResponse {
+  const status = safeProxyStatus(upstreamStatus, previewProxy);
+  const headers = new Headers();
+  headers.set("x-admin-proxy", "next-route");
+  if (status !== upstreamStatus) {
+    headers.set("x-proxy-upstream-status", String(upstreamStatus));
+  }
+  return NextResponse.json({ detail }, { status, headers });
+}
+
 async function proxyRequest(
   request: NextRequest,
   context: { params: Promise<{ path: string[] }> }
 ): Promise<NextResponse> {
+  const previewProxy = isPreviewNginxProxy(request);
   const { base, error } = resolveBackendBase();
   if (!base) {
-    return NextResponse.json({ detail: error }, { status: 503 });
+    return jsonProxyError(
+      error || "No está configurada la URL del backend.",
+      503,
+      previewProxy
+    );
   }
 
   const { path } = await context.params;
@@ -58,11 +94,11 @@ async function proxyRequest(
   if (accept) forwardHeaders.set("accept", accept);
 
   const method = request.method.toUpperCase();
-  let bodyBuffer: ArrayBuffer | undefined;
+  let bodyBytes: Uint8Array | undefined;
   if (method !== "GET" && method !== "HEAD") {
     const rawBuffer = await request.arrayBuffer();
     if (rawBuffer.byteLength > 0) {
-      bodyBuffer = rawBuffer;
+      bodyBytes = new Uint8Array(rawBuffer);
     }
   }
 
@@ -71,13 +107,18 @@ async function proxyRequest(
     let currentMethod = method;
 
     for (let redirectCount = 0; redirectCount < 4; redirectCount++) {
+      const requestBody =
+        currentMethod !== "GET" && currentMethod !== "HEAD" && bodyBytes
+          ? bodyBytes
+          : undefined;
+      if (!requestBody) {
+        forwardHeaders.delete("content-type");
+      }
+
       upstreamResponse = await fetch(targetUrl, {
         method: currentMethod,
         headers: forwardHeaders,
-        body:
-          currentMethod !== "GET" && currentMethod !== "HEAD" && bodyBuffer
-            ? bodyBuffer
-            : undefined,
+        body: requestBody ? Buffer.from(requestBody) : undefined,
         cache: "no-store",
         redirect: "manual",
       });
@@ -108,9 +149,10 @@ async function proxyRequest(
     }
 
     if (!upstreamResponse) {
-      return NextResponse.json(
-        { detail: "No se recibió respuesta del servidor backend." },
-        { status: 502 }
+      return jsonProxyError(
+        "No se recibió respuesta del servidor backend.",
+        502,
+        previewProxy
       );
     }
 
@@ -120,13 +162,22 @@ async function proxyRequest(
 
     const responseBuffer = await upstreamResponse.arrayBuffer();
     const responseHeaders = new Headers();
+    responseHeaders.set("x-admin-proxy", "next-route");
     const upstreamContentType = upstreamResponse.headers.get("content-type");
     if (upstreamContentType) {
       responseHeaders.set("content-type", upstreamContentType);
     }
 
+    const finalStatus = safeProxyStatus(upstreamResponse.status, previewProxy);
+    if (finalStatus !== upstreamResponse.status) {
+      responseHeaders.set(
+        "x-proxy-upstream-status",
+        String(upstreamResponse.status)
+      );
+    }
+
     return new NextResponse(responseBuffer, {
-      status: upstreamResponse.status,
+      status: finalStatus,
       headers: responseHeaders,
     });
   } catch (err) {
@@ -144,11 +195,10 @@ async function proxyRequest(
       // mantener base
     }
 
-    return NextResponse.json(
-      {
-        detail: `No se pudo conectar con el backend (${hostLabel}): ${cause}. Verifica que la URL sea pública y que el servidor esté encendido.`,
-      },
-      { status: 502 }
+    return jsonProxyError(
+      `No se pudo conectar con el backend (${hostLabel}): ${cause}. Verifica que la URL sea pública y que el servidor esté encendido.`,
+      502,
+      previewProxy
     );
   }
 }

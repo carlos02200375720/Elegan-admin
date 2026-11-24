@@ -267,6 +267,27 @@ function extractErrorMessage(payload: unknown, status: number): string {
   return `Error en la solicitud (HTTP ${status}).`;
 }
 
+function isHtmlPayload(contentType: string, text: string): boolean {
+  if (/text\/html/i.test(contentType)) return true;
+  const trimmed = text.trimStart();
+  return /^<!doctype\s+html/i.test(trimmed) || /^<html[\s>]/i.test(trimmed);
+}
+
+function extractHtmlTitle(html: string): string {
+  const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  return match?.[1]?.replace(/\s+/g, " ").trim() ?? "";
+}
+
+function safeUrlPath(rawUrl: string): string {
+  if (!rawUrl) return "";
+  try {
+    const parsed = new URL(rawUrl);
+    return parsed.pathname || rawUrl;
+  } catch {
+    return rawUrl;
+  }
+}
+
 export async function adminFetch<T>(
   path: string,
   options: RequestInit & { token?: string; onUnauthorized?: () => void } = {}
@@ -281,39 +302,95 @@ export async function adminFetch<T>(
     requestHeaders.set("Content-Type", "application/json");
   }
 
-  let response: Response;
-  try {
-    // Llamada same-origin hacia el proxy de Next.js (/api/admin/[...path]) para evitar bloqueos de CORS
-    response = await fetch(path, {
-      ...init,
-      headers: requestHeaders,
-      cache: "no-store",
-    });
-  } catch {
-    throw new AdminApiError(
-      "No se pudo conectar con el servidor del panel. Verifica tu conexión e intenta nuevamente.",
-      0
-    );
-  }
-
-  const text = await response.text();
-  let parsed: unknown = null;
-  if (text) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    let response: Response;
     try {
-      parsed = JSON.parse(text);
-    } catch {
-      parsed = text;
+      // Llamada same-origin hacia el proxy de Next.js (/api/admin/[...path]) para evitar bloqueos de CORS
+      response = await fetch(path, {
+        ...init,
+        headers: requestHeaders,
+        credentials: "include",
+        cache: "no-store",
+      });
+    } catch (fetchErr) {
+      const reason =
+        fetchErr instanceof Error && fetchErr.message ? ` (${fetchErr.message})` : "";
+      throw new AdminApiError(
+        `No se pudo conectar con el servidor del panel${reason}. Verifica tu conexión e intenta nuevamente.`,
+        0
+      );
     }
+
+    const upstreamStatusHeader = response.headers.get("x-proxy-upstream-status");
+    const effectiveStatus = upstreamStatusHeader
+      ? Number(upstreamStatusHeader) || response.status
+      : response.status;
+    const fromNextProxy = response.headers.get("x-admin-proxy") === "next-route";
+    const contentType = response.headers.get("content-type") ?? "";
+    const text = await response.text();
+    let parsed: unknown = null;
+    if (text) {
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        parsed = text;
+      }
+    }
+
+    if (response.ok && isHtmlPayload(contentType, text)) {
+      const title = extractHtmlTitle(text);
+      const isWarmup = /Starting Server|warmup/i.test(text);
+      if (attempt < 2 && isWarmup) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        continue;
+      }
+      const finalPath = safeUrlPath(response.url);
+      const isCookieCheck =
+        !fromNextProxy &&
+        (/__cookie_check\.html/i.test(finalPath) || /cookie check/i.test(title));
+      if (isCookieCheck) {
+        throw new AdminApiError(
+          "La vista previa bloqueó la petición porque falta renovar la cookie de seguridad del iframe (/__cookie_check.html). Recarga la vista previa o abre la app en una pestaña nueva e intenta nuevamente.",
+          401,
+          {
+            previewHtml: true,
+            cookieCheck: true,
+            fromNextProxy,
+            title,
+            redirected: response.redirected,
+            url: response.url,
+          }
+        );
+      }
+      const source = fromNextProxy ? "backend" : "proxy-preview";
+      throw new AdminApiError(
+        `Respuesta HTML inesperada en lugar de JSON [origen: ${source}, título: "${title || "sin título"}", redirigido: ${response.redirected ? "sí" : "no"}, ruta: ${finalPath || path}].`,
+        502,
+        {
+          previewHtml: !fromNextProxy,
+          fromNextProxy,
+          title,
+          redirected: response.redirected,
+          url: response.url,
+        }
+      );
+    }
+
+    if (!response.ok) {
+      if (effectiveStatus === 401 || effectiveStatus === 403) {
+        onUnauthorized?.();
+      }
+      throw new AdminApiError(
+        extractErrorMessage(parsed, effectiveStatus),
+        effectiveStatus,
+        parsed
+      );
+    }
+
+    return (parsed ?? {}) as T;
   }
 
-  if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
-      onUnauthorized?.();
-    }
-    throw new AdminApiError(extractErrorMessage(parsed, response.status), response.status, parsed);
-  }
-
-  return (parsed ?? {}) as T;
+  throw new AdminApiError("No se obtuvo una respuesta válida del servidor.", 502);
 }
 
 function unwrapItems<T>(data: unknown, fallbackKeys: string[] = []): T[] {
@@ -748,24 +825,107 @@ export async function replyToClientMessage(
 }
 
 // 8. Media (/api/admin/media)
+function extractUploadedMedia(raw: unknown): UploadedMedia | null {
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (/^(https?:\/\/|\/)/i.test(trimmed)) {
+      return { url: trimmed };
+    }
+    return null;
+  }
+
+  if (Array.isArray(raw) && raw.length > 0) {
+    return extractUploadedMedia(raw[0]);
+  }
+
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+
+  const record = raw as Record<string, unknown>;
+  const urlKeys = [
+    "url",
+    "imageUrl",
+    "image_url",
+    "publicUrl",
+    "public_url",
+    "mediaUrl",
+    "media_url",
+    "fileUrl",
+    "file_url",
+    "signedUrl",
+    "signed_url",
+    "downloadUrl",
+    "download_url",
+    "secure_url",
+    "location",
+    "src",
+  ];
+
+  for (const key of urlKeys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) {
+      return {
+        url: value.trim(),
+        objectName:
+          typeof record.objectName === "string"
+            ? record.objectName
+            : typeof record.object_name === "string"
+              ? record.object_name
+              : undefined,
+        contentType:
+          typeof record.contentType === "string"
+            ? record.contentType
+            : typeof record.content_type === "string"
+              ? record.content_type
+              : undefined,
+        size: typeof record.size === "number" ? record.size : undefined,
+      };
+    }
+  }
+
+  for (const wrapperKey of ["data", "item", "media", "file", "result", "uploaded"]) {
+    if (record[wrapperKey] !== undefined) {
+      const nested = extractUploadedMedia(record[wrapperKey]);
+      if (nested) return nested;
+    }
+  }
+
+  return null;
+}
+
+function buildMediaFormData(file: File): FormData {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("name", file.name);
+  return form;
+}
+
 export async function uploadAdminMedia(
   file: File,
   token: string,
   onUnauthorized?: () => void
 ): Promise<UploadedMedia> {
-  const form = new FormData();
-  form.append("file", file);
-  form.append("name", file.name);
-  const data = await adminFetch<UploadedMedia>("/api/admin/media", {
+  const raw = await adminFetch<unknown>("/api/admin/media", {
     method: "POST",
     token,
     onUnauthorized,
-    body: form,
+    body: buildMediaFormData(file),
   });
-  if (!data.url) {
-    throw new AdminApiError(`No se recibió la URL de ${file.name}.`, 500);
+
+  const uploaded = extractUploadedMedia(raw);
+  if (!uploaded?.url) {
+    const keys =
+      raw && typeof raw === "object" && !Array.isArray(raw)
+        ? Object.keys(raw as Record<string, unknown>).join(", ")
+        : typeof raw;
+    throw new AdminApiError(
+      `No se recibió la URL de ${file.name}${keys ? ` (respuesta: ${keys})` : ""}.`,
+      500,
+      raw
+    );
   }
-  return data;
+  return uploaded;
 }
 
 export type BankAccount = {
