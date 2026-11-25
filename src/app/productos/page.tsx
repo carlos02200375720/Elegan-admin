@@ -24,7 +24,7 @@ import {
 function formatProductPrice(value: number): string {
   const fixed = Number(value).toFixed(2);
   const [integer, decimals] = fixed.split(".");
-  const grouped = integer.replace(/\\B(?=(\\d{3})+(?!\\d))/g, ".");
+  const grouped = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   return `RD$ ${Number(decimals) === 0 ? grouped : `${grouped},${decimals.replace(/0+$/, "")}`}`;
 }
 
