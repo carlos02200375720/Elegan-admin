@@ -19,7 +19,7 @@ export function formatCurrencyDOP(value?: string | number | null): string | null
   const num = parseMoneyValue(value);
   if (!Number.isFinite(num)) return String(value);
 
-  const integer = Math.round(num);
+  const integer = Math.sign(num) * Math.round(Math.abs(num));
   const grouped = Math.abs(integer).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   return `${integer < 0 ? "-" : ""}RD$ ${grouped}`;
 }
