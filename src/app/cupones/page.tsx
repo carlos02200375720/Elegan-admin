@@ -45,7 +45,7 @@ export default function CuponesPage() {
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!token) return;
-    const value = Number(discountValue);
+    const value = Math.round(Number(discountValue));
     if (!Number.isFinite(value) || value <= 0 || (discountType === "percentage" && value > 100)) {
       setError(discountType === "percentage" ? "El porcentaje debe estar entre 0 y 100." : "Introduce un monto válido en DOP.");
       return;
@@ -121,7 +121,7 @@ export default function CuponesPage() {
               </select>
             </label>
             <label className="field">Valor {discountType === "percentage" ? "(%)" : "(RD$)"}
-              <input type="number" min="0.01" max={discountType === "percentage" ? "100" : undefined} step="0.01" value={discountValue} onChange={e => setDiscountValue(e.target.value)} placeholder={discountType === "percentage" ? "10" : "500"} required />
+              <input type="number" min="1" max={discountType === "percentage" ? "100" : undefined} step="1" value={discountValue} onChange={e => setDiscountValue(e.target.value)} placeholder={discountType === "percentage" ? "10" : "500"} required />
             </label>
             <label className="field">Estado
               <select value={isActive ? "active" : "inactive"} onChange={e => setIsActive(e.target.value === "active")}>
