@@ -24,13 +24,11 @@ function getStatusInfo(status: string) {
   );
 }
 
-function formatDop(raw?: string | number, formatted?: string): string {
+function formatDop(raw?: string | number, _formatted?: string): string {
   if (raw === undefined || raw === null || raw === "") return "—";
-  const source = typeof formatted === "string" && formatted.trim() ? formatted : raw;
-  const value = Number(source);
-  if (!Number.isFinite(value)) return "—";
-  const integer = Math.round(value);
-  return `RD$ ${integer.toLocaleString("es-DO", { maximumFractionDigits: 0 })}`;
+  const value = typeof raw === "number" ? raw : /^\d+$/.test(raw.trim()) ? Number(raw.trim()) : NaN;
+  if (!Number.isSafeInteger(value) || value < 0) return "—";
+  return `RD$ ${value.toLocaleString("es-DO", { maximumFractionDigits: 0 })}`;
 }
 
 function formatDate(raw?: string): string {
