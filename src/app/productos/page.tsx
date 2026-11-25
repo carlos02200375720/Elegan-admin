@@ -23,7 +23,7 @@ import {
 
 function formatProductPrice(value: number): string {
   if (!Number.isSafeInteger(value) || value < 0) return "—";
-  return `RD$ ${value.toString().replace(/\\B(?=(\\d{3})+(?!\\d))/g, ".")}`;
+  return `RD$ ${value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 }
 
 function parseWholeAmount(raw: string): number | null {
