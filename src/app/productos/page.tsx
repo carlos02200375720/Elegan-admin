@@ -28,7 +28,7 @@ function formatProductPrice(value: number): string {
 
 function parseWholeAmount(raw: string): number | null {
   const value = raw.trim();
-  if (!/^\\d+$/.test(value)) return null;
+  if (!/^\d+$/.test(value)) return null;
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) ? parsed : null;
 }
@@ -235,7 +235,12 @@ export default function ProductosPage() {
   async function handleCreateProduct(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!token) return;
-    const parsedPrice = parseWholeAmount(price);\n    if (parsedPrice === null) {\n      setError("El precio debe ser un número entero, sin decimales.");\n      return;\n    }\n    if (photos.length === 0) {
+    const parsedPrice = parseWholeAmount(price);
+    if (parsedPrice === null) {
+      setError("El precio debe ser un número entero, sin decimales.");
+      return;
+    }
+    if (photos.length === 0) {
       setError("Selecciona al menos una fotografía para el producto.");
       return;
     }
@@ -407,7 +412,12 @@ export default function ProductosPage() {
   async function handleSaveEdit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!token || !editingProduct) return;
-    const parsedEditPrice = parseWholeAmount(editPrice);\n    if (parsedEditPrice === null) {\n      setEditError("El precio debe ser un número entero, sin decimales.");\n      return;\n    }\n    const parsedEditShippingMethods = parseShippingMethods(editShippingMethods);
+    const parsedEditPrice = parseWholeAmount(editPrice);
+    if (parsedEditPrice === null) {
+      setEditError("El precio debe ser un número entero, sin decimales.");
+      return;
+    }
+    const parsedEditShippingMethods = parseShippingMethods(editShippingMethods);
     if (!parsedEditShippingMethods) {
       setEditError("Completa todos los métodos de envío con un precio válido.");
       return;
