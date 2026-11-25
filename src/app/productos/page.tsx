@@ -581,7 +581,7 @@ export default function ProductosPage() {
                 <input
                   type="number"
                   min="0"
-                  step="0.01"
+                  step="1"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
                   required
@@ -641,7 +641,7 @@ export default function ProductosPage() {
                       <input value={method.name} required placeholder="Envío estándar" onChange={(e) => setShippingMethods((items) => items.map((item, i) => i === index ? { ...item, name: e.target.value } : item))} />
                     </label>
                     <label className="field">Precio (DOP)
-                      <input type="number" min="0" step="0.01" placeholder="0.00" value={method.price} required onChange={(e) => setShippingMethods((items) => items.map((item, i) => i === index ? { ...item, price: e.target.value } : item))} />
+                      <input type="number" min="0" step="1" placeholder="0" value={method.price} required onChange={(e) => setShippingMethods((items) => items.map((item, i) => i === index ? { ...item, price: e.target.value } : item))} />
                     </label>
                     <label className="field">Tiempo de entrega
                       <input value={method.deliveryTime} required placeholder="5–7 días" onChange={(e) => setShippingMethods((items) => items.map((item, i) => i === index ? { ...item, deliveryTime: e.target.value } : item))} />
@@ -1104,7 +1104,7 @@ export default function ProductosPage() {
                     <input
                       type="number"
                       min="0"
-                      step="0.01"
+                      step="1"
                       value={editPrice}
                       onChange={(e) => setEditPrice(e.target.value)}
                       required
@@ -1152,7 +1152,7 @@ export default function ProductosPage() {
                           <input value={method.name} required onChange={(e) => setEditShippingMethods((items) => items.map((item, i) => i === index ? { ...item, name: e.target.value } : item))} />
                         </label>
                         <label className="field">Precio (DOP)
-                          <input type="number" min="0" step="0.01" placeholder="0.00" value={method.price} required onChange={(e) => setEditShippingMethods((items) => items.map((item, i) => i === index ? { ...item, price: e.target.value } : item))} />
+                          <input type="number" min="0" step="1" placeholder="0" value={method.price} required onChange={(e) => setEditShippingMethods((items) => items.map((item, i) => i === index ? { ...item, price: e.target.value } : item))} />
                         </label>
                         <label className="field">Tiempo de entrega
                           <input value={method.deliveryTime} required onChange={(e) => setEditShippingMethods((items) => items.map((item, i) => i === index ? { ...item, deliveryTime: e.target.value } : item))} />
