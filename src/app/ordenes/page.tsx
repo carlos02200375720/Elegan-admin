@@ -25,14 +25,12 @@ function getStatusInfo(status: string) {
 }
 
 function formatDop(raw?: string | number, formatted?: string): string {
-  if (typeof formatted === "string" && formatted.trim()) return `RD$ ${formatted}`;
   if (raw === undefined || raw === null || raw === "") return "—";
-  const value = typeof raw === "number" ? raw : Number(raw);
+  const source = typeof formatted === "string" && formatted.trim() ? formatted : raw;
+  const value = Number(source);
   if (!Number.isFinite(value)) return "—";
-  const fixed = value.toFixed(2);
-  const [integer, decimals] = fixed.split(".");
-  const grouped = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  return `RD$ ${Number(decimals) === 0 ? grouped : `${grouped},${decimals.replace(/0+$/, "")}`}`;
+  const integer = Math.round(value);
+  return `RD$ ${integer.toLocaleString("es-DO", { maximumFractionDigits: 0 })}`;
 }
 
 function formatDate(raw?: string): string {
