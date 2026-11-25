@@ -52,10 +52,12 @@ function MensajesInbox() {
     threadsRef.current = threads;
   }, [threads]);
 
-  const loadAllThreads = useCallback(async () => {
+  const loadAllThreads = useCallback(async (silent = false) => {
     if (!token) return;
-    setLoadingList(true);
-    setError("");
+    if (!silent) {
+      setLoadingList(true);
+      setError("");
+    }
     try {
       const result = await listMessages(token, undefined, handleUnauthorized);
       setThreads(result);
@@ -66,17 +68,17 @@ function MensajesInbox() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar los mensajes.");
     } finally {
-      setLoadingList(false);
+      if (!silent) setLoadingList(false);
     }
   }, [token, handleUnauthorized]);
 
   const loadThreadDetail = useCallback(
-    async (userId: string) => {
+    async (userId: string, silent = false) => {
       if (!token || !userId) {
         setActiveMessages([]);
         return;
       }
-      setLoadingThread(true);
+      if (!silent) setLoadingThread(true);
       try {
         const result = await listMessages(token, userId, handleUnauthorized);
         const match = result.find((t) => t.userId === userId) ?? result[0];
@@ -93,7 +95,7 @@ function MensajesInbox() {
             : "No se pudo consultar la conversación del cliente."
         );
       } finally {
-        setLoadingThread(false);
+        if (!silent) setLoadingThread(false);
       }
     },
     [token, handleUnauthorized]
@@ -108,6 +110,29 @@ function MensajesInbox() {
       void loadThreadDetail(selectedUserId);
     }
   }, [selectedUserId, loadThreadDetail]);
+
+  // Mantiene sincronizada la bandeja y el hilo abierto sin recargar la página.
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const pollMessages = async () => {
+      if (document.visibilityState === "visible") {
+        await loadAllThreads(true);
+        if (selectedUserId) {
+          await loadThreadDetail(selectedUserId, true);
+        }
+      }
+      if (!cancelled) timer = setTimeout(pollMessages, 5000);
+    };
+
+    timer = setTimeout(pollMessages, 5000);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [token, selectedUserId, loadAllThreads, loadThreadDetail]);
 
   async function handleSendReply(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
