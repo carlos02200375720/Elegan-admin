@@ -211,6 +211,7 @@ export type OrderItem = {
   shippingPriceFormatted?: string;
   shippingDeliveryTime?: string;
   shippingOrigin?: string;
+  [key: string]: unknown;
 };
 
 export type Order = {

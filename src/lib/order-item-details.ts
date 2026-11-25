@@ -421,6 +421,13 @@ function findImageUrlInObject(obj: Record<string, unknown>, depth = 0): string {
     if (typeof candidate === "string" && isSafeMediaUrl(candidate)) {
       return candidate.trim();
     }
+    if (isPlainObject(candidate)) {
+      const nestedUrl =
+        (typeof candidate.url === "string" && isSafeMediaUrl(candidate.url) ? candidate.url.trim() : "") ||
+        (typeof candidate.src === "string" && isSafeMediaUrl(candidate.src) ? candidate.src.trim() : "") ||
+        findImageUrlInObject(candidate, depth + 1);
+      if (nestedUrl) return nestedUrl;
+    }
   }
 
   const imagesArr = byNormalized.get("images") ?? byNormalized.get("photos");
@@ -662,7 +669,8 @@ export function extractOrderItemDetails(
       // Skip obvious technical keys at top level of item
       if (
         !insideContainer &&
-        (rawKey.startsWith("_") || /(id|ids|at|by|url|dop|price|cost|total|amount|count|stock)$/.test(normalized))
+        (rawKey.startsWith("_") ||
+          /(id|ids|at|by|url|dop|price|cost|total|amount|count|stock|formatted)$/.test(normalized))
       ) {
         continue;
       }

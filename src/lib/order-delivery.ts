@@ -79,6 +79,16 @@ const DELIVERY_CONTAINER_KEYS = new Set([
   "coordenadas",
   "geo",
   "geopoint",
+  "user",
+  "userinfo",
+  "usuario",
+  "deliverylocation",
+  "shippinglocation",
+  "addressdata",
+  "deliveryaddresssnapshot",
+  "shippingaddresssnapshot",
+  "orderdelivery",
+  "ordershipping",
 ]);
 
 const CONTAINER_IGNORED_KEYS = new Set([
@@ -278,7 +288,14 @@ const FIELD_SPECS: FieldSpec[] = [
     slot: "whatsapp",
     label: "WhatsApp",
     tabular: true,
-    aliases: ["whatsapp", "whatsappnumber", "numerowhatsapp"],
+    aliases: [
+      "whatsapp",
+      "whatsappnumber",
+      "numerowhatsapp",
+      "customerwhatsapp",
+      "deliverywhatsapp",
+      "shippingwhatsapp",
+    ],
   },
   {
     slot: "secondaryPhone",
@@ -408,6 +425,10 @@ const FIELD_SPECS: FieldSpec[] = [
       "localidad",
       "locality",
       "ensanche",
+      "deliveryzone",
+      "shippingzone",
+      "deliverysector",
+      "shippingsector",
     ],
   },
   {
@@ -721,7 +742,7 @@ function looksTechnicalTopLevelKey(rawKey: string, normalized: string): boolean 
   if (EXCLUDED_TOP_LEVEL_KEYS.has(normalized)) return true;
   if (rawKey.startsWith("_")) return true;
   if (
-    /(id|ids|at|by|token|hash|secret|objectname|version|count|flag|status|dop|usd|amount|price|total|cost|fee|discount|tax|accepted|verified|approved|rejected|released|reserved|deleted|active|enabled)$/.test(
+    /(id|ids|at|by|token|hash|secret|objectname|version|count|flag|status|dop|usd|amount|price|total|cost|fee|discount|tax|formatted|accepted|verified|approved|rejected|released|reserved|deleted|active|enabled)$/.test(
       normalized
     )
   ) {
@@ -802,12 +823,24 @@ export function extractOrderDeliveryDetails(order: Order): ExtractedOrderDeliver
 
       const nestedObj = tryParseJsonObject(rawValue);
       if (nestedObj) {
-        if (
-          insideDeliveryContainer ||
+        if (normalized === "shippingmethod" || normalized === "deliverymethod") {
+          const methodName = formatPrimitiveValue(nestedObj.name ?? nestedObj.label ?? nestedObj.title);
+          if (methodName) pushSlotValue("deliveryMethod", methodName);
+          const methodTime = formatPrimitiveValue(nestedObj.deliveryTime ?? nestedObj.estimatedDelivery);
+          if (methodTime) pushSlotValue("deliveryTime", methodTime);
+          const methodOrigin = formatPrimitiveValue(nestedObj.origin ?? nestedObj.shippingOrigin);
+          if (methodOrigin) pushSlotValue("shippingOrigin", methodOrigin);
+          continue;
+        }
+        const looksDeliveryContainer =
           DELIVERY_CONTAINER_KEYS.has(normalized) ||
           normalized === "address" ||
-          normalized === "direccion"
-        ) {
+          normalized === "direccion" ||
+          (!EXCLUDED_TOP_LEVEL_KEYS.has(normalized) &&
+            /(address|direccion|delivery|entrega|shipping|envio|customer|cliente|recipient|destinatario|contact|contacto|location|ubicacion|coord|geo)/.test(
+              normalized
+            ));
+        if (insideDeliveryContainer || looksDeliveryContainer) {
           visitObject(nestedObj, true, depth + 1);
         }
         continue;

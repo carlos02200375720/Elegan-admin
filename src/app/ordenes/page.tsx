@@ -1,18 +1,28 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Eye, RefreshCw, Search, X } from "lucide-react";
+import { Check, Copy, ExternalLink, Eye, RefreshCw, Search, X } from "lucide-react";
 import { AdminShell } from "@/components/AdminShell";
 import { useAdminAuth } from "@/components/AdminAuthProvider";
+import { SafeImage } from "@/components/SafeImage";
 import {
   listOrders,
+  listProducts,
+  listCategories,
   getOrderProof,
   Order,
+  OrderItem,
+  Product,
   ORDER_STATUSES,
   OrderStatus,
   updateOrderStatus,
   reviewTransferPayment,
 } from "@/lib/admin-api";
+import { extractOrderDeliveryDetails } from "@/lib/order-delivery";
+import {
+  extractOrderItemDetails,
+  extractOrderItemProductId,
+} from "@/lib/order-item-details";
 
 function getStatusInfo(status: string) {
   return (
@@ -24,11 +34,23 @@ function getStatusInfo(status: string) {
   );
 }
 
-function formatDop(raw?: string | number, _formatted?: string): string {
-  if (raw === undefined || raw === null || raw === "") return "—";
-  const value = typeof raw === "number" ? raw : /^\d+$/.test(raw.trim()) ? Number(raw.trim()) : NaN;
-  if (!Number.isSafeInteger(value) || value < 0) return "—";
-  return `RD$ ${value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
+function formatDop(raw?: string | number | null, formatted?: string): string {
+  if (raw !== undefined && raw !== null && raw !== "") {
+    const cleaned =
+      typeof raw === "number"
+        ? raw
+        : Number(raw.trim().replace(/^RD\$\s*/i, "").replace(/^DOP\s*/i, "").replace(/,/g, ""));
+    if (Number.isFinite(cleaned) && cleaned >= 0) {
+      const isWhole = Math.abs(cleaned - Math.round(cleaned)) < 1e-9;
+      if (isWhole) {
+        return `RD$ ${Math.round(cleaned).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
+      }
+      const [intPart, decPart] = cleaned.toFixed(2).split(".");
+      return `RD$ ${intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".")}.${decPart}`;
+    }
+  }
+  if (formatted && formatted.trim()) return formatted.trim();
+  return "—";
 }
 
 function formatDate(raw?: string): string {
@@ -42,9 +64,60 @@ function formatDate(raw?: string): string {
   });
 }
 
+function formatDateTime(raw?: string): string {
+  if (!raw) return "—";
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return raw;
+  return parsed.toLocaleString("es-DO", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatPaymentMethod(method?: string): string {
+  if (!method) return "";
+  if (method === "bank_transfer") return "Transferencia bancaria";
+  if (method === "cash_on_delivery") return "Pago contra entrega";
+  return method;
+}
+
+function formatPaymentStatus(status?: string): string {
+  if (!status) return "";
+  switch (status) {
+    case "verified":
+      return "Verificado";
+    case "proof_submitted":
+      return "Comprobante enviado";
+    case "pending_proof":
+      return "Pendiente de comprobante";
+    case "rejected":
+      return "Rechazado";
+    case "pending":
+      return "Pendiente";
+    case "paid":
+      return "Pagado";
+    default:
+      return status;
+  }
+}
+
+function getOrderItems(order: Order): OrderItem[] {
+  if (Array.isArray(order.items)) return order.items;
+  const record = order as Record<string, unknown>;
+  for (const key of ["orderItems", "order_items", "lineItems", "line_items", "products"]) {
+    if (Array.isArray(record[key])) return record[key] as OrderItem[];
+  }
+  return [];
+}
+
 export default function OrdenesPage() {
   const { token, handleUnauthorized } = useAdminAuth();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [productsById, setProductsById] = useState<Map<string, Product>>(() => new Map());
+  const [categoryNameById, setCategoryNameById] = useState<Map<string, string>>(() => new Map());
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
@@ -53,14 +126,29 @@ export default function OrdenesPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [proofImageUrl, setProofImageUrl] = useState("");
+  const [copiedDelivery, setCopiedDelivery] = useState(false);
 
   const loadOrders = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     setError("");
     try {
-      const items = await listOrders(token, handleUnauthorized);
+      const [items, products, categories] = await Promise.all([
+        listOrders(token, handleUnauthorized),
+        listProducts(token, handleUnauthorized).catch(() => [] as Product[]),
+        listCategories(token, handleUnauthorized).catch(() => []),
+      ]);
       setOrders(items);
+      const nextProducts = new Map<string, Product>();
+      for (const product of products) {
+        if (product?.id) nextProducts.set(product.id, product);
+      }
+      setProductsById(nextProducts);
+      const nextCategories = new Map<string, string>();
+      for (const category of categories) {
+        if (category?.id && category?.name) nextCategories.set(category.id, category.name);
+      }
+      setCategoryNameById(nextCategories);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar las órdenes.");
     } finally {
@@ -151,6 +239,43 @@ export default function OrdenesPage() {
       );
     });
   }, [orders, search, statusFilter]);
+
+  const selectedDelivery = useMemo(
+    () => (selectedOrder ? extractOrderDeliveryDetails(selectedOrder) : null),
+    [selectedOrder]
+  );
+
+  const selectedItems = useMemo(() => {
+    if (!selectedOrder) return [];
+    return getOrderItems(selectedOrder).map((item) => {
+      const productId = extractOrderItemProductId(item);
+      const fallbackProduct = productId ? productsById.get(productId) : undefined;
+      return {
+        raw: item,
+        extracted: extractOrderItemDetails(item, fallbackProduct, categoryNameById),
+      };
+    });
+  }, [selectedOrder, productsById, categoryNameById]);
+
+  const selectedTotalUnits = useMemo(
+    () => selectedItems.reduce((sum, entry) => sum + (entry.extracted.quantity || 1), 0),
+    [selectedItems]
+  );
+
+  useEffect(() => {
+    setCopiedDelivery(false);
+  }, [selectedOrder?.id]);
+
+  async function handleCopyDelivery() {
+    if (!selectedDelivery?.copyText) return;
+    try {
+      await navigator.clipboard.writeText(selectedDelivery.copyText);
+      setCopiedDelivery(true);
+      window.setTimeout(() => setCopiedDelivery(false), 2000);
+    } catch {
+      // Ignorar si el navegador bloquea el portapapeles
+    }
+  }
 
   return (
     <AdminShell
@@ -316,7 +441,7 @@ export default function OrdenesPage() {
         )}
       </section>
 
-      {selectedOrder && (
+      {selectedOrder && selectedDelivery && (
         <div
           className="modal-backdrop"
           role="dialog"
@@ -339,51 +464,273 @@ export default function OrdenesPage() {
             </div>
 
             <div className="order-detail-box">
-              <div>
-                <strong>Cliente:</strong>{" "}
-                {selectedOrder.customerName || selectedOrder.customerEmail || "—"}
-              </div>
-              {selectedOrder.customerEmail && (
-                <div>
-                  <strong>Correo:</strong> {selectedOrder.customerEmail}
+              <section className="order-detail-section">
+                <div className="order-detail-section-head">
+                  <h3 className="order-detail-section-title">Datos de entrega</h3>
+                  {selectedDelivery.copyText && (
+                    <button
+                      type="button"
+                      className="order-detail-copy-btn"
+                      onClick={() => void handleCopyDelivery()}
+                    >
+                      {copiedDelivery ? <Check size={13} /> : <Copy size={13} />}
+                      <span>{copiedDelivery ? "Copiado" : "Copiar datos"}</span>
+                    </button>
+                  )}
                 </div>
-              )}
-              {selectedOrder.customerPhone && (
-                <div className="tabular">
-                  <strong>Teléfono:</strong> {selectedOrder.customerPhone}
+
+                {selectedDelivery.fields.length > 0 ? (
+                  <dl className="order-detail-grid">
+                    {selectedDelivery.fields.map((field) => (
+                      <div
+                        key={field.key}
+                        className={`order-detail-item ${field.wide ? "is-wide" : ""}`}
+                      >
+                        <dt className="order-detail-label">{field.label}</dt>
+                        <dd
+                          className={`order-detail-value ${field.tabular ? "tabular" : ""}`}
+                        >
+                          {field.href ? (
+                            <a
+                              href={field.href}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="order-detail-link"
+                            >
+                              <span>{field.value}</span>
+                              <ExternalLink size={12} />
+                            </a>
+                          ) : (
+                            field.value
+                          )}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : (
+                  <p className="muted-sm" style={{ margin: 0 }}>
+                    No se registraron datos de entrega en esta orden.
+                  </p>
+                )}
+              </section>
+
+              <section className="order-detail-section">
+                <div className="order-detail-section-head">
+                  <h3 className="order-detail-section-title">Resumen y pago</h3>
                 </div>
-              )}
-              {(selectedOrder.address || selectedOrder.city) && (
-                <div>
-                  <strong>Dirección:</strong>{" "}
-                  {[selectedOrder.address, selectedOrder.city].filter(Boolean).join(", ")}
-                </div>
-              )}
-              <div className="tabular">
-                <strong>Fecha:</strong> {formatDate(selectedOrder.createdAt)}
-              </div>
-              {selectedOrder.paymentMethod && <div><strong>Método de pago:</strong> {selectedOrder.paymentMethod === "bank_transfer" ? "Transferencia bancaria" : selectedOrder.paymentMethod === "cash_on_delivery" ? "Pago contra entrega" : selectedOrder.paymentMethod}</div>}
-              {selectedOrder.paymentStatus && <div><strong>Estado del pago:</strong> {selectedOrder.paymentStatus}</div>}
-              {selectedOrder.bankAccount && <div><strong>Cuenta elegida:</strong> {selectedOrder.bankAccount.bankName} · {selectedOrder.bankAccount.accountNumber} · {selectedOrder.bankAccount.holderName}</div>}
-              {selectedOrder.paymentProofObjectName && <div><strong>Comprobante de transferencia:</strong>{proofImageUrl ? <><div><a href={proofImageUrl} target="_blank" rel="noreferrer">Abrir imagen original</a></div><a href={proofImageUrl} target="_blank" rel="noreferrer"><img src={proofImageUrl} alt="Comprobante de transferencia del pedido" style={{ display: "block", maxWidth: "100%", maxHeight: 360, objectFit: "contain", marginTop: 10, borderRadius: 8 }} /></a></> : <p className="muted-sm">Cargando comprobante...</p>}</div>}
-              {selectedOrder.paymentMethod === "cash_on_delivery" && <div><strong>Condiciones de contra entrega:</strong> {selectedOrder.cashOnDeliveryAccepted ? "Aceptadas por el cliente" : "No aceptadas"}</div>}
-              {typeof selectedOrder.paymentReviewNote === "string" && selectedOrder.paymentReviewNote && <div><strong>Nota de revisión:</strong> {selectedOrder.paymentReviewNote}</div>}
-              {selectedOrder.paymentMethod === "bank_transfer" && selectedOrder.paymentStatus === "proof_submitted" && (
-                <div className="row-actions">
-                  <button className="button-primary" disabled={busyId === selectedOrder.id} onClick={() => void handleTransferReview(selectedOrder, true)}>Confirmar transferencia</button>
-                  <button className="button-danger" disabled={busyId === selectedOrder.id} onClick={() => void handleTransferReview(selectedOrder, false)}>Rechazar comprobante</button>
-                </div>
-              )}
-              {selectedOrder.paymentMethod === "bank_transfer" && selectedOrder.paymentStatus !== "verified" && selectedOrder.status !== "cancelado" && (
-                <div className="row-actions">
-                  <button className="button-danger" disabled={busyId === selectedOrder.id} onClick={() => void handleStatusChange(selectedOrder, "cancelado")}>Cancelar pedido y liberar inventario</button>
-                </div>
-              )}
-              {selectedOrder.notes && (
-                <div>
-                  <strong>Notas:</strong> {selectedOrder.notes}
-                </div>
-              )}
+
+                <dl className="order-detail-grid">
+                  <div className="order-detail-item">
+                    <dt className="order-detail-label">Fecha del pedido</dt>
+                    <dd className="order-detail-value tabular">
+                      {formatDateTime(selectedOrder.createdAt)}
+                    </dd>
+                  </div>
+
+                  <div className="order-detail-item">
+                    <dt className="order-detail-label">Estado actual</dt>
+                    <dd className="order-detail-value">
+                      <span
+                        className={`status-text status-${getStatusInfo(selectedOrder.status).tone}`}
+                      >
+                        {getStatusInfo(selectedOrder.status).label}
+                      </span>
+                    </dd>
+                  </div>
+
+                  {(selectedOrder.subtotalDOP !== undefined ||
+                    selectedOrder.subtotal !== undefined ||
+                    selectedOrder.subtotalDOPFormatted) && (
+                    <div className="order-detail-item">
+                      <dt className="order-detail-label">Subtotal</dt>
+                      <dd className="order-detail-value tabular">
+                        {formatDop(
+                          selectedOrder.subtotalDOP ?? selectedOrder.subtotal,
+                          selectedOrder.subtotalDOPFormatted
+                        )}
+                      </dd>
+                    </div>
+                  )}
+
+                  {(selectedOrder.shippingTotalDOP !== undefined ||
+                    selectedOrder.shippingTotalDOPFormatted) && (
+                    <div className="order-detail-item">
+                      <dt className="order-detail-label">Envío total</dt>
+                      <dd className="order-detail-value tabular">
+                        {formatDop(
+                          selectedOrder.shippingTotalDOP,
+                          selectedOrder.shippingTotalDOPFormatted
+                        )}
+                      </dd>
+                    </div>
+                  )}
+
+                  {(selectedOrder.couponCode ||
+                    selectedOrder.couponDiscountDOP !== undefined ||
+                    selectedOrder.couponDiscountDOPFormatted) && (
+                    <div className="order-detail-item">
+                      <dt className="order-detail-label">Cupón / Descuento</dt>
+                      <dd className="order-detail-value tabular">
+                        {[
+                          selectedOrder.couponCode ? `Código ${selectedOrder.couponCode}` : "",
+                          selectedOrder.couponDiscountDOP !== undefined ||
+                          selectedOrder.couponDiscountDOPFormatted
+                            ? `-${formatDop(
+                                selectedOrder.couponDiscountDOP,
+                                selectedOrder.couponDiscountDOPFormatted
+                              )}`
+                            : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </dd>
+                    </div>
+                  )}
+
+                  <div className="order-detail-item">
+                    <dt className="order-detail-label">Total del pedido</dt>
+                    <dd className="order-detail-value tabular" style={{ fontWeight: 700 }}>
+                      {formatDop(
+                        selectedOrder.totalDOP ?? selectedOrder.total,
+                        selectedOrder.totalDOPFormatted ?? selectedOrder.totalFormatted
+                      )}
+                    </dd>
+                  </div>
+
+                  {selectedOrder.paymentMethod && (
+                    <div className="order-detail-item">
+                      <dt className="order-detail-label">Método de pago</dt>
+                      <dd className="order-detail-value">
+                        {formatPaymentMethod(selectedOrder.paymentMethod)}
+                      </dd>
+                    </div>
+                  )}
+
+                  {selectedOrder.paymentStatus && (
+                    <div className="order-detail-item">
+                      <dt className="order-detail-label">Estado del pago</dt>
+                      <dd className="order-detail-value">
+                        {formatPaymentStatus(selectedOrder.paymentStatus)}
+                      </dd>
+                    </div>
+                  )}
+
+                  {selectedOrder.bankAccount && (
+                    <div className="order-detail-item is-wide">
+                      <dt className="order-detail-label">Cuenta elegida</dt>
+                      <dd className="order-detail-value tabular">
+                        {[
+                          selectedOrder.bankAccount.bankName,
+                          selectedOrder.bankAccount.accountType,
+                          selectedOrder.bankAccount.accountNumber,
+                          selectedOrder.bankAccount.holderName,
+                          selectedOrder.bankAccount.holderDocument,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </dd>
+                    </div>
+                  )}
+
+                  {selectedOrder.paymentMethod === "cash_on_delivery" && (
+                    <div className="order-detail-item is-wide">
+                      <dt className="order-detail-label">Condiciones de contra entrega</dt>
+                      <dd className="order-detail-value">
+                        {selectedOrder.cashOnDeliveryAccepted
+                          ? "Aceptadas por el cliente"
+                          : "No aceptadas"}
+                      </dd>
+                    </div>
+                  )}
+
+                  {typeof selectedOrder.paymentReviewNote === "string" &&
+                    selectedOrder.paymentReviewNote && (
+                      <div className="order-detail-item is-wide">
+                        <dt className="order-detail-label">Nota de revisión</dt>
+                        <dd className="order-detail-value">
+                          {selectedOrder.paymentReviewNote}
+                        </dd>
+                      </div>
+                    )}
+                </dl>
+
+                {selectedOrder.paymentProofObjectName && (
+                  <div className="order-detail-item is-wide">
+                    <span className="order-detail-label">Comprobante de transferencia</span>
+                    {proofImageUrl ? (
+                      <>
+                        <div>
+                          <a
+                            href={proofImageUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="order-detail-link"
+                          >
+                            <span>Abrir imagen original</span>
+                            <ExternalLink size={12} />
+                          </a>
+                        </div>
+                        <a href={proofImageUrl} target="_blank" rel="noreferrer">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={proofImageUrl}
+                            alt="Comprobante de transferencia del pedido"
+                            style={{
+                              display: "block",
+                              maxWidth: "100%",
+                              maxHeight: 360,
+                              objectFit: "contain",
+                              marginTop: 8,
+                              borderRadius: 8,
+                            }}
+                          />
+                        </a>
+                      </>
+                    ) : (
+                      <p className="muted-sm" style={{ margin: 0 }}>
+                        Cargando comprobante...
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {selectedOrder.paymentMethod === "bank_transfer" &&
+                  selectedOrder.paymentStatus === "proof_submitted" && (
+                    <div className="row-actions">
+                      <button
+                        type="button"
+                        className="button-primary"
+                        disabled={busyId === selectedOrder.id}
+                        onClick={() => void handleTransferReview(selectedOrder, true)}
+                      >
+                        Confirmar transferencia
+                      </button>
+                      <button
+                        type="button"
+                        className="button-danger"
+                        disabled={busyId === selectedOrder.id}
+                        onClick={() => void handleTransferReview(selectedOrder, false)}
+                      >
+                        Rechazar comprobante
+                      </button>
+                    </div>
+                  )}
+
+                {selectedOrder.paymentMethod === "bank_transfer" &&
+                  selectedOrder.paymentStatus !== "verified" &&
+                  selectedOrder.status !== "cancelado" && (
+                    <div className="row-actions">
+                      <button
+                        type="button"
+                        className="button-danger"
+                        disabled={busyId === selectedOrder.id}
+                        onClick={() => void handleStatusChange(selectedOrder, "cancelado")}
+                      >
+                        Cancelar pedido y liberar inventario
+                      </button>
+                    </div>
+                  )}
+              </section>
             </div>
 
             <label className="field">
@@ -394,7 +741,11 @@ export default function OrdenesPage() {
                     ? selectedOrder.status
                     : ""
                 }
-                disabled={busyId === selectedOrder.id || (selectedOrder.paymentMethod === "bank_transfer" && selectedOrder.paymentStatus !== "verified")}
+                disabled={
+                  busyId === selectedOrder.id ||
+                  (selectedOrder.paymentMethod === "bank_transfer" &&
+                    selectedOrder.paymentStatus !== "verified")
+                }
                 onChange={(e) => {
                   const next = e.target.value as OrderStatus;
                   if (next) void handleStatusChange(selectedOrder, next);
@@ -414,61 +765,116 @@ export default function OrdenesPage() {
             </label>
 
             <div>
-              <h3 style={{ margin: "0 0 10px", fontSize: 15 }}>Artículos</h3>
-              {Array.isArray(selectedOrder.items) && selectedOrder.items.length > 0 ? (
+              <div className="order-items-head">
+                <h3 style={{ margin: 0, fontSize: 15 }}>Artículos</h3>
+                {selectedItems.length > 0 && (
+                  <span className="panel-meta tabular">
+                    {selectedTotalUnits}{" "}
+                    {selectedTotalUnits === 1 ? "unidad" : "unidades"}
+                  </span>
+                )}
+              </div>
+              {selectedItems.length > 0 ? (
                 <div className="data-list">
-                  {selectedOrder.items.map((item, idx) => (
-                    <div className="data-row" key={`${item.productId || idx}`}>
-                      <div className="row-info">
-                        <div className="row-title">
-                          {item.name || item.title || "Producto"}
+                  {selectedItems.map(({ raw, extracted }, idx) => (
+                    <div
+                      className="data-row order-item-card"
+                      key={`${extracted.productId || idx}-${idx}`}
+                    >
+                      <div className="order-item-head">
+                        {extracted.imageUrl ? (
+                          <a
+                            href={extracted.imageUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="order-item-thumb-link"
+                            title="Ver foto del producto"
+                          >
+                            <SafeImage
+                              src={extracted.imageUrl}
+                              alt={extracted.title}
+                              className="order-item-thumb"
+                              fallbackLabel="Sin foto"
+                            />
+                          </a>
+                        ) : (
+                          <SafeImage
+                            alt={extracted.title}
+                            className="order-item-thumb"
+                            fallbackLabel="Sin foto"
+                          />
+                        )}
+
+                        <div className="order-item-summary">
+                          <div className="order-item-title">{extracted.title}</div>
+                          <div className="order-item-sub">
+                            <span className="order-item-qty tabular">
+                              Cant: {extracted.quantity}
+                            </span>
+                            {extracted.sku && (
+                              <>
+                                <span aria-hidden="true">·</span>
+                                <span className="mono tabular">SKU: {extracted.sku}</span>
+                              </>
+                            )}
+                            {extracted.unitPrice !== undefined && extracted.quantity > 1 && (
+                              <>
+                                <span aria-hidden="true">·</span>
+                                <span className="tabular">
+                                  {formatDop(extracted.unitPrice, raw.priceFormatted)} c/u
+                                </span>
+                              </>
+                            )}
+                          </div>
                         </div>
-                        <div className="row-meta">
-                          <span className="tabular">Cant: {item.quantity ?? 1}</span>
-                          {item.size && (
-                            <>
-                              <span aria-hidden="true">·</span>
-                              <span>Talla: {item.size}</span>
-                            </>
+
+                        <div className="order-item-pricing tabular">
+                          {(extracted.lineTotal !== undefined ||
+                            extracted.unitPrice !== undefined ||
+                            raw.priceFormatted) && (
+                            <div style={{ fontWeight: 600 }}>
+                              {formatDop(
+                                extracted.lineTotal ?? extracted.unitPrice,
+                                raw.priceFormatted
+                              )}
+                            </div>
                           )}
-                          {item.color && (
-                            <>
-                              <span aria-hidden="true">·</span>
-                              <span>Color: {item.color}</span>
-                            </>
+                          {(extracted.shippingPrice !== undefined ||
+                            raw.shippingPriceFormatted) && (
+                            <div className="muted-sm">
+                              Envío:{" "}
+                              {formatDop(
+                                extracted.shippingPrice,
+                                raw.shippingPriceFormatted
+                              )}
+                            </div>
                           )}
-                          {item.shippingMethodName && (
-                            <>
-                              <span aria-hidden="true">·</span>
-                              <span>Envío: {item.shippingMethodName}</span>
-                            </>
-                          )}
-                          {item.shippingDeliveryTime && (
-                            <>
-                              <span aria-hidden="true">·</span>
-                              <span>Entrega: {item.shippingDeliveryTime}</span>
-                            </>
-                          )}
-                          {item.shippingOrigin && (
-                            <>
-                              <span aria-hidden="true">·</span>
-                              <span>Origen: {item.shippingOrigin}</span>
-                            </>
-                          )}
+                          {extracted.discountAmount !== undefined &&
+                            extracted.discountAmount > 0 && (
+                              <div className="muted-sm">
+                                Desc.: -{formatDop(extracted.discountAmount)}
+                              </div>
+                            )}
                         </div>
                       </div>
-                      <div className="tabular" style={{ fontWeight: 600, textAlign: "right" }}>
-                        {(item.priceDOP !== undefined || item.price !== undefined) && (
-                          <div>
-                            {formatDop(item.priceDOP ?? item.price, item.priceFormatted)}
-                          </div>
-                        )}
-                        {item.shippingPriceDOP !== undefined && (
-                          <div className="muted-sm">
-                            Envío: {formatDop(item.shippingPriceDOP, item.shippingPriceFormatted)}
-                          </div>
-                        )}
-                      </div>
+
+                      {extracted.details.length > 0 && (
+                        <dl className="order-item-details">
+                          {extracted.details.map((detail) => (
+                            <div
+                              key={detail.key}
+                              className={`order-detail-item ${detail.wide ? "is-wide" : ""}`}
+                            >
+                              <dt className="order-detail-label">{detail.label}</dt>
+                              <dd
+                                className={`order-detail-value ${detail.tabular ? "tabular" : ""}`}
+                              >
+                                {detail.value}
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      )}
                     </div>
                   ))}
                 </div>
