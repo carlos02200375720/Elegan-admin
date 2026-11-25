@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Eye, RefreshCw, Search, X } from "lucide-react";
 import { AdminShell } from "@/components/AdminShell";
+import { formatCurrencyDOP } from "@/lib/currency";
 import { useAdminAuth } from "@/components/AdminAuthProvider";
 import {
   listOrders,
@@ -24,13 +25,8 @@ function getStatusInfo(status: string) {
   );
 }
 
-function formatDop(raw?: string | number, formatted?: string): string {
-  if (raw === undefined || raw === null || raw === "") return "—";
-  const source = typeof formatted === "string" && formatted.trim() ? formatted : raw;
-  const value = Number(source);
-  if (!Number.isFinite(value)) return "—";
-  const integer = Math.round(value);
-  return `RD$ ${integer.toLocaleString("es-DO", { maximumFractionDigits: 0 })}`;
+function formatDop(raw?: string | number): string {
+  return formatCurrencyDOP(raw) ?? "—";
 }
 
 function formatDate(raw?: string): string {
@@ -274,7 +270,7 @@ export default function OrdenesPage() {
                         </span>
                       </td>
                       <td className="text-right tabular" style={{ fontWeight: 600 }}>
-                        {formatDop(order.totalDOP ?? order.total, order.totalDOPFormatted ?? order.totalFormatted)}
+                        {formatDop(order.totalDOP ?? order.total)}
                       </td>
                       <td className="text-right">
                         <div className="row-actions" style={{ justifyContent: "flex-end" }}>
@@ -462,12 +458,12 @@ export default function OrdenesPage() {
                       <div className="tabular" style={{ fontWeight: 600, textAlign: "right" }}>
                         {(item.priceDOP !== undefined || item.price !== undefined) && (
                           <div>
-                            {formatDop(item.priceDOP ?? item.price, item.priceFormatted)}
+                            {formatDop(item.priceDOP ?? item.price)}
                           </div>
                         )}
                         {item.shippingPriceDOP !== undefined && (
                           <div className="muted-sm">
-                            Envío: {formatDop(item.shippingPriceDOP, item.shippingPriceFormatted)}
+                            Envío: {formatDop(item.shippingPriceDOP)}
                           </div>
                         )}
                       </div>
