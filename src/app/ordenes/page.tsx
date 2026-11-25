@@ -28,7 +28,7 @@ function formatDop(raw?: string | number, _formatted?: string): string {
   if (raw === undefined || raw === null || raw === "") return "—";
   const value = typeof raw === "number" ? raw : /^\d+$/.test(raw.trim()) ? Number(raw.trim()) : NaN;
   if (!Number.isSafeInteger(value) || value < 0) return "—";
-  return `RD$ ${value.toLocaleString("es-DO", { maximumFractionDigits: 0 })}`;
+  return `RD$ ${value.toString().replace(/\\B(?=(\\d{3})+(?!\\d))/g, ".")}`;
 }
 
 function formatDate(raw?: string): string {
