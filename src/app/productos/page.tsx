@@ -21,6 +21,13 @@ import {
   uploadAdminMedia,
 } from "@/lib/admin-api";
 
+function formatProductPrice(value: number): string {
+  const fixed = Number(value).toFixed(2);
+  const [integer, decimals] = fixed.split(".");
+  const grouped = integer.replace(/\\B(?=(\\d{3})+(?!\\d))/g, ".");
+  return `RD$ ${Number(decimals) === 0 ? grouped : `${grouped},${decimals.replace(/0+$/, "")}`}`;
+}
+
 type ShippingMethodDraft = Omit<ShippingMethod, "price"> & {
   price: string;
 };
@@ -854,10 +861,9 @@ export default function ProductosPage() {
                       <span>{getCategoryLabel(product.category)}</span>
                       <span aria-hidden="true">·</span>
                       <span className="tabular">
-                        {Number(product.price ?? 0).toLocaleString("es-DO", {
-                          style: "currency",
-                          currency: "DOP",
-                        })}
+                        {typeof product.priceFormatted === "string" && product.priceFormatted
+                          ? `RD$ ${product.priceFormatted}`
+                          : formatProductPrice(product.price ?? 0)}
                       </span>
                       <span aria-hidden="true">·</span>
                       <span className="tabular">Stock: {product.stock ?? 0}</span>
