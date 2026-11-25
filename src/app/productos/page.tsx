@@ -22,10 +22,8 @@ import {
 } from "@/lib/admin-api";
 
 function formatProductPrice(value: number): string {
-  const fixed = Number(value).toFixed(2);
-  const [integer, decimals] = fixed.split(".");
-  const grouped = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  return `RD$ ${Number(decimals) === 0 ? grouped : `${grouped},${decimals.replace(/0+$/, "")}`}`;
+  const integer = Math.round(Number(value) || 0);
+  return `RD$ ${integer.toLocaleString("es-DO", { maximumFractionDigits: 0 })}`;
 }
 
 type ShippingMethodDraft = Omit<ShippingMethod, "price"> & {
