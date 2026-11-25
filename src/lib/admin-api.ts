@@ -1083,12 +1083,46 @@ export async function uploadAdminMedia(
   token: string,
   onUnauthorized?: () => void
 ): Promise<UploadedMedia> {
-  const raw = await adminFetch<unknown>("/api/admin/media", {
-    method: "POST",
-    token,
-    onUnauthorized,
-    body: buildMediaFormData(file),
-  });
+  const apiBase = getApiBase();
+  let raw: unknown;
+
+  // Los archivos multimedia no deben atravesar la función proxy de Vercel:
+  // su límite de cuerpo de solicitud es mucho menor que el del backend.
+  if (apiBase) {
+    const requestHeaders = new Headers();
+    requestHeaders.set("Authorization", `Bearer ${token}`);
+    const direct = await fetchDirectBackend<unknown>(
+      apiBase,
+      "/api/admin/media",
+      {
+        method: "POST",
+        body: buildMediaFormData(file),
+      },
+      requestHeaders,
+      onUnauthorized
+    );
+
+    if (direct.ok) {
+      raw = direct.data;
+      emitPreviewCookieEvent(PREVIEW_COOKIE_CLEARED_EVENT);
+    } else if (direct.apiError) {
+      throw direct.apiError;
+    } else {
+      raw = await adminFetch<unknown>("/api/admin/media", {
+        method: "POST",
+        token,
+        onUnauthorized,
+        body: buildMediaFormData(file),
+      });
+    }
+  } else {
+    raw = await adminFetch<unknown>("/api/admin/media", {
+      method: "POST",
+      token,
+      onUnauthorized,
+      body: buildMediaFormData(file),
+    });
+  }
 
   const uploaded = extractUploadedMedia(raw);
   if (!uploaded?.url) {
