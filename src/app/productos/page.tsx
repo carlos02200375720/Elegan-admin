@@ -22,8 +22,15 @@ import {
 } from "@/lib/admin-api";
 
 function formatProductPrice(value: number): string {
-  const integer = Math.round(Number(value) || 0);
-  return `RD$ ${integer.toLocaleString("es-DO", { maximumFractionDigits: 0 })}`;
+  if (!Number.isSafeInteger(value) || value < 0) return "—";
+  return `RD$ ${value.toLocaleString("es-DO", { maximumFractionDigits: 0 })}`;
+}
+
+function parseWholeAmount(raw: string): number | null {
+  const value = raw.trim();
+  if (!/^\\d+$/.test(value)) return null;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : null;
 }
 
 type ShippingMethodDraft = Omit<ShippingMethod, "price"> & {
@@ -47,7 +54,7 @@ function parseShippingMethods(methods: ShippingMethodDraft[]): ShippingMethod[] 
   const parsed: ShippingMethod[] = [];
   for (const method of methods) {
     const rawPrice = method.price.trim();
-    const numericPrice = Number(rawPrice);
+    const numericPrice = parseWholeAmount(rawPrice);
     if (
       !method.name.trim() ||
       !method.deliveryTime.trim() ||
@@ -229,7 +236,7 @@ export default function ProductosPage() {
   async function handleCreateProduct(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!token) return;
-    if (photos.length === 0) {
+    const parsedPrice = parseWholeAmount(price);\n    if (parsedPrice === null) {\n      setError("El precio debe ser un número entero, sin decimales.");\n      return;\n    }\n    if (photos.length === 0) {
       setError("Selecciona al menos una fotografía para el producto.");
       return;
     }
@@ -256,7 +263,7 @@ export default function ProductosPage() {
           name: name.trim(),
           description: description.trim(),
           category,
-          price: Number(price),
+          price: parsedPrice,
           stock: Number(stock),
           sizes: sizes
             .split(",")
@@ -401,7 +408,7 @@ export default function ProductosPage() {
   async function handleSaveEdit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!token || !editingProduct) return;
-    const parsedEditShippingMethods = parseShippingMethods(editShippingMethods);
+    const parsedEditPrice = parseWholeAmount(editPrice);\n    if (parsedEditPrice === null) {\n      setEditError("El precio debe ser un número entero, sin decimales.");\n      return;\n    }\n    const parsedEditShippingMethods = parseShippingMethods(editShippingMethods);
     if (!parsedEditShippingMethods) {
       setEditError("Completa todos los métodos de envío con un precio válido.");
       return;
@@ -415,7 +422,7 @@ export default function ProductosPage() {
         name: editName.trim(),
         description: editDescription.trim(),
         category: editCategory,
-        price: Number(editPrice),
+        price: parsedEditPrice,
         stock: Number(editStock),
         sizes: editSizes
           .split(",")
