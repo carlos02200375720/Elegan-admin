@@ -18,6 +18,7 @@ import {
   ORDER_STATUSES,
   Product,
 } from "@/lib/admin-api";
+import { formatCurrencyDOP } from "@/lib/currency";
 
 function getOrderStatusMeta(status: string) {
   const found = ORDER_STATUSES.find((item) => item.value === status);
@@ -162,12 +163,9 @@ export default function HomePage() {
                         </span>
                       </div>
                     </div>
-                    {order.total !== undefined && (
+                    {(order.total ?? order.totalDOP) !== undefined && (
                       <span className="tabular" style={{ fontWeight: 600 }}>
-                        {Number(order.total).toLocaleString("es-DO", {
-                          style: "currency",
-                          currency: "DOP",
-                        })}
+                        {formatCurrencyDOP(order.total ?? order.totalDOP)}
                       </span>
                     )}
                   </div>

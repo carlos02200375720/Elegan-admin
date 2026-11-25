@@ -1155,7 +1155,184 @@ select:disabled {
   background: var(--surface-subtle);
   border-radius: var(--radius-sm);
   display: grid;
+  gap: 14px;
+}
+
+.order-detail-section {
+  display: grid;
   gap: 10px;
+}
+
+.order-detail-section + .order-detail-section {
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.order-detail-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.order-detail-section-title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.order-detail-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 26px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--foreground);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.order-detail-copy-btn:hover {
+  border-color: var(--border-strong);
+}
+
+.order-detail-grid {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 14px;
+}
+
+.order-detail-item {
+  display: grid;
+  gap: 2px;
+  align-content: start;
+  min-width: 0;
+}
+
+.order-detail-item.is-wide {
+  grid-column: 1 / -1;
+}
+
+.order-detail-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.order-detail-value {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--foreground);
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.order-detail-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--info);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  width: fit-content;
+}
+
+.order-items-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.order-item-card {
+  display: grid;
+  align-items: stretch;
+  justify-content: stretch;
+  gap: 10px;
+  padding: 14px 0;
+}
+
+.order-item-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.order-item-thumb-link {
+  display: block;
+  flex: 0 0 68px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.order-item-thumb {
+  width: 68px;
+  height: 68px;
+  flex: 0 0 68px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  display: block;
+}
+
+.order-item-summary {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 4px;
+  align-content: start;
+}
+
+.order-item-title {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--foreground);
+  word-break: break-word;
+}
+
+.order-item-sub {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.order-item-qty {
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.order-item-pricing {
+  flex-shrink: 0;
+  text-align: right;
+  display: grid;
+  gap: 2px;
+  align-content: start;
+}
+
+.order-item-details {
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--surface-subtle);
+  border-radius: var(--radius-sm);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 14px;
 }
 
 /* Messages Two-Pane Inbox */
@@ -1470,6 +1647,21 @@ select:disabled {
   .toggle-control {
     width: 100%;
     justify-content: space-between;
+  }
+  .order-detail-grid,
+  .order-item-details {
+    grid-template-columns: 1fr;
+  }
+  .order-detail-item.is-wide {
+    grid-column: auto;
+  }
+  .order-item-head {
+    flex-wrap: wrap;
+  }
+  .order-item-pricing {
+    width: 100%;
+    text-align: left;
+    padding-left: 80px;
   }
 }
 

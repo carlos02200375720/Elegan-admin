@@ -12,6 +12,7 @@ import {
   listCoupons,
   updateCouponItem,
 } from "@/lib/admin-api";
+import { formatCurrencyDOP } from "@/lib/currency";
 
 export default function CuponesPage() {
   const { token, handleUnauthorized } = useAdminAuth();
@@ -139,7 +140,7 @@ export default function CuponesPage() {
               <div className="row-info">
                 <h3 className="row-title">{item.code}</h3>
                 <div className="row-meta">
-                  <span>{item.discountType === "percentage" ? `${item.discountValue}% de descuento` : `RD$ ${Number(item.discountValue).toFixed(2)} de descuento`}</span>
+                  <span>{item.discountType === "percentage" ? `${item.discountValue}% de descuento` : `${formatCurrencyDOP(item.discountValue)} de descuento`}</span>
                   <span aria-hidden="true">·</span>
                   <span className={`status-text ${item.isActive ? "status-success" : "status-muted"}`}>{item.isActive ? "Activo" : "Inactivo"}</span>
                 </div>
