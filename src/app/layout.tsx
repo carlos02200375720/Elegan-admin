@@ -25,6 +25,7 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Elegan | Administración",
   description: "Panel administrativo de Elegan",
+  icons: { icon: "/icon.svg" },
 };
 
 export default function RootLayout({
