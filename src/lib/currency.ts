@@ -13,5 +13,5 @@ export function formatCurrencyDOP(value?: string | number | null): string | null
   if (value === undefined || value === null || value === "") return null;
   const integer = parseIntegerMoney(value);
   if (integer === null) return null;
-  return `RD$ ${integer.toLocaleString("es-DO", { maximumFractionDigits: 0 })}`;
+  return `RD$ ${integer.toString().replace(/\\B(?=(\\d{3})+(?!\\d))/g, ".")}`;
 }
