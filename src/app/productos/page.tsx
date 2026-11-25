@@ -8,6 +8,7 @@ import { DeleteConfirmButton } from "@/components/DeleteConfirmButton";
 import { SafeImage } from "@/components/SafeImage";
 import { ToggleSwitch } from "@/components/ToggleSwitch";
 import { PreviewCookieBanner } from "@/components/PreviewCookieBanner";
+import { formatCurrencyDOP } from "@/lib/currency";
 import {
   Category,
   createProductItem,
@@ -22,8 +23,7 @@ import {
 } from "@/lib/admin-api";
 
 function formatProductPrice(value: number): string {
-  const integer = Math.round(Number(value) || 0);
-  return `RD$ ${integer.toLocaleString("es-DO", { maximumFractionDigits: 0 })}`;
+  return formatCurrencyDOP(value) ?? "RD$ 0";
 }
 
 type ShippingMethodDraft = Omit<ShippingMethod, "price"> & {
