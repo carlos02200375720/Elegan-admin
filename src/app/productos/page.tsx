@@ -60,8 +60,7 @@ function parseShippingMethods(methods: ShippingMethodDraft[]): ShippingMethod[] 
       !method.deliveryTime.trim() ||
       !method.origin.trim() ||
       rawPrice === "" ||
-      !Number.isFinite(numericPrice) ||
-      numericPrice < 0
+      numericPrice === null
     ) {
       return null;
     }
