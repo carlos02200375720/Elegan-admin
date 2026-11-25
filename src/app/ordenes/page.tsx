@@ -24,6 +24,17 @@ function getStatusInfo(status: string) {
   );
 }
 
+function formatDop(raw?: string | number, formatted?: string): string {
+  if (typeof formatted === "string" && formatted.trim()) return `RD$ ${formatted}`;
+  if (raw === undefined || raw === null || raw === "") return "—";
+  const value = typeof raw === "number" ? raw : Number(raw);
+  if (!Number.isFinite(value)) return "—";
+  const fixed = value.toFixed(2);
+  const [integer, decimals] = fixed.split(".");
+  const grouped = integer.replace(/\\B(?=(\\d{3})+(?!\\d))/g, ".");
+  return `RD$ ${Number(decimals) === 0 ? grouped : `${grouped},${decimals.replace(/0+$/, "")}`}`;
+}
+
 function formatDate(raw?: string): string {
   if (!raw) return "—";
   const parsed = new Date(raw);
@@ -265,12 +276,7 @@ export default function OrdenesPage() {
                         </span>
                       </td>
                       <td className="text-right tabular" style={{ fontWeight: 600 }}>
-                        {order.total !== undefined
-                          ? Number(order.total).toLocaleString("es-DO", {
-                              style: "currency",
-                              currency: "DOP",
-                            })
-                          : "—"}
+                        {formatDop(order.totalDOP ?? order.total, order.totalDOPFormatted ?? order.totalFormatted)}
                       </td>
                       <td className="text-right">
                         <div className="row-actions" style={{ justifyContent: "flex-end" }}>
@@ -458,18 +464,12 @@ export default function OrdenesPage() {
                       <div className="tabular" style={{ fontWeight: 600, textAlign: "right" }}>
                         {(item.priceDOP !== undefined || item.price !== undefined) && (
                           <div>
-                            {Number(item.priceDOP ?? item.price).toLocaleString("es-DO", {
-                              style: "currency",
-                              currency: "DOP",
-                            })}
+                            {formatDop(item.priceDOP ?? item.price, item.priceFormatted)}
                           </div>
                         )}
                         {item.shippingPriceDOP !== undefined && (
                           <div className="muted-sm">
-                            Envío: {Number(item.shippingPriceDOP).toLocaleString("es-DO", {
-                              style: "currency",
-                              currency: "DOP",
-                            })}
+                            Envío: {formatDop(item.shippingPriceDOP, item.shippingPriceFormatted)}
                           </div>
                         )}
                       </div>
