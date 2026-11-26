@@ -47,7 +47,7 @@ export default function CuponesPage() {
     if (!token) return;
     const value = Number(discountValue);
     if (!Number.isSafeInteger(value) || value <= 0 || (discountType === "percentage" && value > 100)) {
-      setError(discountType === "percentage" ? "El porcentaje debe estar entre 0 y 100." : "Introduce un monto válido en DOP.");
+      setError(discountType === "percentage" ? "El porcentaje debe estar entre 0 y 100." : "Introduce un monto válido.");
       return;
     }
     setSaving(true);
@@ -117,7 +117,7 @@ export default function CuponesPage() {
             <label className="field">Tipo de descuento
               <select value={discountType} onChange={e => setDiscountType(e.target.value as "percentage" | "fixed")}>
                 <option value="percentage">Porcentaje (%)</option>
-                <option value="fixed">Monto fijo (DOP)</option>
+                <option value="fixed">Monto fijo ($)</option>
               </select>
             </label>
             <label className="field">Valor {discountType === "percentage" ? "(%)" : "(RD$)"}
