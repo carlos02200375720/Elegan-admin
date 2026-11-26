@@ -10,6 +10,7 @@ import {
   getAdminProfile,
   updateAdminProfile,
 } from "@/lib/admin-api";
+import { subscribeRealtime } from "@/lib/realtime-events";
 
 export default function PerfilPage() {
   const { token, handleUnauthorized, refreshSession } = useAdminAuth();
@@ -50,6 +51,8 @@ export default function PerfilPage() {
   useEffect(() => {
     void loadProfile();
   }, [loadProfile]);
+
+  useEffect(() => subscribeRealtime(["super-admins"], () => void loadProfile()), [loadProfile]);
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
