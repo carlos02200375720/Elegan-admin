@@ -6,6 +6,7 @@ import { RefreshCw, Search, Send } from "lucide-react";
 import { AdminShell } from "@/components/AdminShell";
 import { useAdminAuth } from "@/components/AdminAuthProvider";
 import {
+  getApiBase,
   listMessages,
   MessageItem,
   MessageThread,
@@ -114,26 +115,87 @@ function MensajesInbox() {
     }
   }, [selectedUserId, loadThreadDetail]);
 
-  // Mantiene sincronizada la bandeja y el hilo abierto sin recargar la página.
+  // WebSocket autenticado: recibe avisos del backend al insertarse mensajes en MongoDB.
+  // Si el WebSocket no está disponible, se conserva una consulta de respaldo.
   useEffect(() => {
     if (!token) return;
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout>;
 
-    const pollMessages = async () => {
-      if (document.visibilityState === "visible") {
-        await loadAllThreads(true);
-        if (selectedUserId) {
-          await loadThreadDetail(selectedUserId, true);
-        }
-      }
-      if (!cancelled) timer = setTimeout(pollMessages, 5000);
+    let disposed = false;
+    let socket: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+    let fallbackTimer: ReturnType<typeof setInterval> | undefined;
+    let retryDelay = 1000;
+
+    const stopFallback = () => {
+      if (fallbackTimer) clearInterval(fallbackTimer);
+      fallbackTimer = undefined;
     };
 
-    timer = setTimeout(pollMessages, 5000);
+    const startFallback = () => {
+      if (fallbackTimer || disposed) return;
+      fallbackTimer = setInterval(() => {
+        if (document.visibilityState !== "visible") return;
+        void loadAllThreads(true);
+        if (selectedUserId) void loadThreadDetail(selectedUserId, true);
+      }, 5000);
+    };
+
+    const connect = () => {
+      if (disposed) return;
+      const apiBase = getApiBase();
+      if (!apiBase) {
+        startFallback();
+        reconnectTimer = setTimeout(connect, retryDelay);
+        retryDelay = Math.min(retryDelay * 2, 15000);
+        return;
+      }
+
+      const wsBase = apiBase.replace(/^https:/i, "wss:").replace(/^http:/i, "ws:");
+      try {
+        socket = new WebSocket(`${wsBase}/api/admin/messages/ws`);
+      } catch {
+        startFallback();
+        reconnectTimer = setTimeout(connect, retryDelay);
+        retryDelay = Math.min(retryDelay * 2, 15000);
+        return;
+      }
+
+      socket.onopen = () => {
+        retryDelay = 1000;
+        stopFallback();
+        socket?.send(JSON.stringify({ token }));
+      };
+
+      socket.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(String(event.data)) as { type?: string };
+          if (payload.type === "message_created") {
+            void loadAllThreads(true);
+            if (selectedUserId) void loadThreadDetail(selectedUserId, true);
+          }
+        } catch {
+          // Ignorar tramas no reconocidas sin interrumpir la conexión.
+        }
+      };
+
+      socket.onerror = () => {
+        socket?.close();
+      };
+
+      socket.onclose = () => {
+        if (disposed) return;
+        startFallback();
+        reconnectTimer = setTimeout(connect, retryDelay);
+        retryDelay = Math.min(retryDelay * 2, 15000);
+      };
+    };
+
+    connect();
     return () => {
-      cancelled = true;
-      clearTimeout(timer);
+      disposed = true;
+      stopFallback();
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      socket?.close();
     };
   }, [token, selectedUserId, loadAllThreads, loadThreadDetail]);
 
