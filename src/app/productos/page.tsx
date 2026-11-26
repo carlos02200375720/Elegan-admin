@@ -19,6 +19,7 @@ import {
   updateProductItem,
   uploadAdminMedia,
 } from "@/lib/admin-api";
+import { subscribeRealtime } from "@/lib/realtime-events";
 function formatProductPrice(value: number): string {
   if (!Number.isSafeInteger(value) || value < 0) return "—";
   return "$" + value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
@@ -144,6 +145,8 @@ export default function ProductosPage() {
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  useEffect(() => subscribeRealtime(["products", "store_categories"], () => void loadData()), [loadData]);
   const photoPreviews = useMemo(
     () =>
       photos.map((file) => ({
