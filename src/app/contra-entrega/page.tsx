@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { AdminShell } from "@/components/AdminShell";
 import { useAdminAuth } from "@/components/AdminAuthProvider";
 import { ToggleSwitch } from "@/components/ToggleSwitch";
+import { subscribeRealtime } from "@/lib/realtime-events";
 import {
   CashOnDeliveryConfig,
   getCashOnDeliveryConfig,
@@ -34,6 +35,13 @@ export default function ContraEntregaPage() {
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [token, handleUnauthorized]);
+
+  useEffect(() => subscribeRealtime(["cash_on_delivery"], () => {
+    if (!token) return;
+    getCashOnDeliveryConfig(token, handleUnauthorized)
+      .then((config) => { setEnabled(config.enabled); setMessage(config.message); })
+      .catch(() => undefined);
+  }), [token, handleUnauthorized]);
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
