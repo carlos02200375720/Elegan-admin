@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import {
   FolderTree,
   FileText,
@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useAdminAuth } from "./AdminAuthProvider";
 import { PreviewCookieBanner } from "./PreviewCookieBanner";
+import { getApiBase } from "@/lib/admin-api";
 
 const NAV_ITEMS = [
   { href: "/", label: "Resumen", icon: LayoutDashboard },
@@ -54,7 +55,7 @@ export function AdminShell({
   children,
 }: AdminShellProps) {
   const pathname = usePathname();
-  const { user, logout } = useAdminAuth();
+  const { user, token, logout } = useAdminAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -66,6 +67,59 @@ export function AdminShell({
       setLoggingOut(false);
     }
   }
+
+  useEffect(() => {
+    if (!token) return;
+    let disposed = false;
+    let socket: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+    let retryDelay = 1000;
+
+    const connect = () => {
+      if (disposed) return;
+      const apiBase = getApiBase();
+      if (!apiBase) {
+        reconnectTimer = setTimeout(connect, retryDelay);
+        retryDelay = Math.min(retryDelay * 2, 15000);
+        return;
+      }
+      const wsBase = apiBase.replace(/^https:/i, "wss:").replace(/^http:/i, "ws:");
+      try {
+        socket = new WebSocket(`${wsBase}/api/admin/events/ws`);
+      } catch {
+        reconnectTimer = setTimeout(connect, retryDelay);
+        retryDelay = Math.min(retryDelay * 2, 15000);
+        return;
+      }
+      socket.onopen = () => {
+        retryDelay = 1000;
+        socket?.send(JSON.stringify({ token }));
+      };
+      socket.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(String(event.data));
+          if (payload.type === "data_changed" && typeof payload.collection === "string") {
+            window.dispatchEvent(new CustomEvent("elegan:realtime", { detail: payload }));
+          }
+        } catch {
+          // Ignorar eventos que no correspondan al contrato.
+        }
+      };
+      socket.onerror = () => socket?.close();
+      socket.onclose = () => {
+        if (disposed) return;
+        reconnectTimer = setTimeout(connect, retryDelay);
+        retryDelay = Math.min(retryDelay * 2, 15000);
+      };
+    };
+
+    connect();
+    return () => {
+      disposed = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      socket?.close();
+    };
+  }, [token]);
 
   const displayName =
     (typeof user?.name === "string" && user.name) ||
