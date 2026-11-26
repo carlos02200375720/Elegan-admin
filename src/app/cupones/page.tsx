@@ -12,6 +12,7 @@ import {
   listCoupons,
   updateCouponItem,
 } from "@/lib/admin-api";
+import { subscribeRealtime } from "@/lib/realtime-events";
 import { formatCurrencyDOP } from "@/lib/currency";
 
 export default function CuponesPage() {
@@ -41,6 +42,8 @@ export default function CuponesPage() {
   }, [token, handleUnauthorized]);
 
   useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => subscribeRealtime(["coupons"], () => void load()), [load]);
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
