@@ -5,6 +5,7 @@ import { AdminShell } from "@/components/AdminShell";
 import { useAdminAuth } from "@/components/AdminAuthProvider";
 import { DeleteConfirmButton } from "@/components/DeleteConfirmButton";
 import { adminFetch } from "@/lib/admin-api";
+import { subscribeRealtime } from "@/lib/realtime-events";
 
 type Report = {
   id: string;
@@ -45,6 +46,7 @@ export default function ModeracionPage() {
   }, [token, handleUnauthorized, filter]);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => subscribeRealtime(["comment_reports", "comments", "blocked_users"], () => void load()), [load]);
 
   async function deleteReportedComment(report: Report) {
     if (!token) return;
