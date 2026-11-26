@@ -20,7 +20,6 @@ import {
 } from "@/lib/admin-api";
 import { subscribeRealtime } from "@/lib/realtime-events";
 import { formatCurrencyDOP } from "@/lib/currency";
-import { subscribeRealtime } from "@/lib/realtime-events";
 
 function getOrderStatusMeta(status: string) {
   const found = ORDER_STATUSES.find((item) => item.value === status);
