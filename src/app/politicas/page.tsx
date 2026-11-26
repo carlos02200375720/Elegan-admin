@@ -5,7 +5,6 @@ import { AdminShell } from "@/components/AdminShell";
 import { useAdminAuth } from "@/components/AdminAuthProvider";
 import { adminFetch } from "@/lib/admin-api";
 import { subscribeRealtime } from "@/lib/realtime-events";
-import { subscribeRealtime } from "@/lib/realtime-events";
 
 type LegalDocument = {
   type: "privacy_policy" | "terms_and_conditions";
