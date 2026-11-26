@@ -11,7 +11,7 @@ import {
   MessageThread,
   replyToClientMessage,
 } from "@/lib/admin-api";
-import { subscribeRealtime } from "@/lib/realtime-events";
+import { getApiBase } from "@/lib/admin-api";
 
 function isFromAdmin(msg: MessageItem): boolean {
   if (typeof msg.fromAdmin === "boolean") return msg.fromAdmin;
@@ -115,10 +115,61 @@ function MensajesInbox() {
     }
   }, [selectedUserId, loadThreadDetail]);
 
-  useEffect(() => subscribeRealtime(["supportMessages"], () => {
-    void loadAllThreads(true);
-    if (selectedUserId) void loadThreadDetail(selectedUserId, true);
-  }), [loadAllThreads, loadThreadDetail, selectedUserId]);
+  // El chat usa su canal WebSocket dedicado para no depender del bus general.
+  useEffect(() => {
+    if (!token) return;
+    let disposed = false;
+    let socket: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+    let retryDelay = 1000;
+
+    const connect = () => {
+      if (disposed) return;
+      const apiBase = getApiBase();
+      if (!apiBase) {
+        reconnectTimer = setTimeout(connect, retryDelay);
+        retryDelay = Math.min(retryDelay * 2, 15000);
+        return;
+      }
+      const wsBase = apiBase.replace(/^https:/i, "wss:").replace(/^http:/i, "ws:");
+      try {
+        socket = new WebSocket(wsBase + "/api/admin/messages/ws");
+      } catch {
+        reconnectTimer = setTimeout(connect, retryDelay);
+        retryDelay = Math.min(retryDelay * 2, 15000);
+        return;
+      }
+
+      socket.onopen = () => {
+        retryDelay = 1000;
+        socket?.send(JSON.stringify({ token }));
+      };
+      socket.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(String(event.data));
+          if (payload.type === "message_created") {
+            void loadAllThreads(true);
+            if (selectedUserId) void loadThreadDetail(selectedUserId, true);
+          }
+        } catch {
+          // Ignorar tramas que no sean eventos de mensajes.
+        }
+      };
+      socket.onerror = () => socket?.close();
+      socket.onclose = () => {
+        if (disposed) return;
+        reconnectTimer = setTimeout(connect, retryDelay);
+        retryDelay = Math.min(retryDelay * 2, 15000);
+      };
+    };
+
+    connect();
+    return () => {
+      disposed = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      socket?.close();
+    };
+  }, [token, loadAllThreads, loadThreadDetail, selectedUserId]);
 
   async function handleSendReply(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
