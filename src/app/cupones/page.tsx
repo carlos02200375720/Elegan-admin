@@ -120,7 +120,7 @@ export default function CuponesPage() {
                 <option value="fixed">Monto fijo ($)</option>
               </select>
             </label>
-            <label className="field">Valor {discountType === "percentage" ? "(%)" : "(RD$)"}
+            <label className="field">Valor {discountType === "percentage" ? "(%)" : "($)"}
               <input type="number" min="1" max={discountType === "percentage" ? "100" : undefined} step="1" value={discountValue} onChange={e => setDiscountValue(e.target.value)} placeholder={discountType === "percentage" ? "10" : "500"} required />
             </label>
             <label className="field">Estado
