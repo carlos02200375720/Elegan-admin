@@ -18,7 +18,9 @@ import {
   ORDER_STATUSES,
   Product,
 } from "@/lib/admin-api";
+import { subscribeRealtime } from "@/lib/realtime-events";
 import { formatCurrencyDOP } from "@/lib/currency";
+import { subscribeRealtime } from "@/lib/realtime-events";
 
 function getOrderStatusMeta(status: string) {
   const found = ORDER_STATUSES.find((item) => item.value === status);
@@ -70,6 +72,8 @@ export default function HomePage() {
   useEffect(() => {
     void loadOverview();
   }, [loadOverview]);
+
+  useEffect(() => subscribeRealtime(["products", "store_categories", "announcements", "orders", "supportMessages"], () => void loadOverview()), [loadOverview]);
 
   const publishedProducts = products.filter((p) => p.isActive).length;
   const activeCategories = categories.filter((c) => c.isActive).length;
