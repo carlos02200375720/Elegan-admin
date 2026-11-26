@@ -656,7 +656,7 @@ export default function ProductosPage() {
                     <label className="field">Método
                       <input value={method.name} required placeholder="Envío estándar" onChange={(e) => setShippingMethods((items) => items.map((item, i) => i === index ? { ...item, name: e.target.value } : item))} />
                     </label>
-                    <label className="field">Precio (DOP)
+                    <label className="field">Precio ($)
                       <input type="number" min="0" step="1" placeholder="0" value={method.price} required onChange={(e) => setShippingMethods((items) => items.map((item, i) => i === index ? { ...item, price: e.target.value } : item))} />
                     </label>
                     <label className="field">Tiempo de entrega
@@ -876,7 +876,7 @@ export default function ProductosPage() {
                       <span aria-hidden="true">·</span>
                       <span className="tabular">
                         {typeof product.priceFormatted === "string" && product.priceFormatted
-                          ? `RD$ ${product.priceFormatted}`
+                          ? (product.priceFormatted.trim().startsWith("$") ? product.priceFormatted.trim() : `${product.priceFormatted.replace(/^RD\\$\\s*/i, "").trim()}`)
                           : formatProductPrice(product.price ?? 0)}
                       </span>
                       <span aria-hidden="true">·</span>
@@ -1167,7 +1167,7 @@ export default function ProductosPage() {
                         <label className="field">Método
                           <input value={method.name} required onChange={(e) => setEditShippingMethods((items) => items.map((item, i) => i === index ? { ...item, name: e.target.value } : item))} />
                         </label>
-                        <label className="field">Precio (DOP)
+                        <label className="field">Precio ($)
                           <input type="number" min="0" step="1" placeholder="0" value={method.price} required onChange={(e) => setEditShippingMethods((items) => items.map((item, i) => i === index ? { ...item, price: e.target.value } : item))} />
                         </label>
                         <label className="field">Tiempo de entrega
