@@ -4,6 +4,7 @@ import { AdminShell } from "@/components/AdminShell";
 import { useAdminAuth } from "@/components/AdminAuthProvider";
 import { DeleteConfirmButton } from "@/components/DeleteConfirmButton";
 import { BankAccount, createBankAccount, deleteBankAccount, listBankAccounts, updateBankAccount } from "@/lib/admin-api";
+import { subscribeRealtime } from "@/lib/realtime-events";
 
 const empty = { bankName: "", accountNumber: "", accountType: "Ahorros", holderName: "", holderDocument: "", isActive: true };
 export default function CuentasBancariasPage() {
@@ -16,6 +17,7 @@ export default function CuentasBancariasPage() {
   const [notice, setNotice] = useState("");
   const load = useCallback(async () => { if (!token) return; try { setItems(await listBankAccounts(token, handleUnauthorized)); } catch (e) { setError(e instanceof Error ? e.message : "No se pudieron cargar las cuentas."); } }, [token, handleUnauthorized]);
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => subscribeRealtime(["bank_accounts"], () => void load()), [load]);
   async function save(e: React.FormEvent) {
     e.preventDefault(); if (!token) return; setBusy(true); setError(""); setNotice("");
     try { await createBankAccount(form, token, handleUnauthorized); setForm(empty); setNotice("Cuenta bancaria agregada."); await load(); }
