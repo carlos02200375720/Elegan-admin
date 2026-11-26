@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { AdminShell } from "@/components/AdminShell";
 import { useAdminAuth } from "@/components/AdminAuthProvider";
 import { adminFetch } from "@/lib/admin-api";
+import { subscribeRealtime } from "@/lib/realtime-events";
+import { subscribeRealtime } from "@/lib/realtime-events";
 
 type LegalDocument = {
   type: "privacy_policy" | "terms_and_conditions";
@@ -45,6 +47,7 @@ export default function PoliticasPage() {
   }, [token, handleUnauthorized]);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => subscribeRealtime(["legal_documents"], () => void load()), [load]);
 
   const activeDocument = documents.find((item) => item.type === activeType);
 
