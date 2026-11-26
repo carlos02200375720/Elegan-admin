@@ -20,6 +20,7 @@ import {
   updateAnnouncementItem,
   uploadAdminMedia,
 } from "@/lib/admin-api";
+import { subscribeRealtime } from "@/lib/realtime-events";
 
 export default function AnunciosPage() {
   const { token, handleUnauthorized } = useAdminAuth();
@@ -81,6 +82,16 @@ export default function AnunciosPage() {
   useEffect(() => {
     void loadAnnouncements();
   }, [loadAnnouncements]);
+
+  useEffect(() => subscribeRealtime(["announcements", "products", "store_categories"], (event) => {
+    if (event.collection === "announcements") void loadAnnouncements();
+    if (event.collection === "products" || event.collection === "store_categories") {
+      if (!token) return;
+      Promise.all([listCategories(token, handleUnauthorized), listProducts(token, handleUnauthorized)])
+        .then(([categoryList, productList]) => { setCategories(categoryList); setProducts(productList); })
+        .catch(() => undefined);
+    }
+  }), [loadAnnouncements, token, handleUnauthorized]);
 
   useEffect(() => {
     if (!token) return;
