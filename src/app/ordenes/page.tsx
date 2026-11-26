@@ -40,7 +40,7 @@ function formatDop(raw?: string | number | null, formatted?: string): string {
 
   if (typeof source === "number") {
     if (!Number.isSafeInteger(source) || source < 0) return "—";
-    return `${source.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
+    return "$" + source.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   }
 
   const normalized = source.trim()
@@ -52,7 +52,7 @@ function formatDop(raw?: string | number | null, formatted?: string): string {
 
   const integer = Number(normalized.replace(/\./g, ""));
   if (!Number.isSafeInteger(integer) || integer < 0) return "—";
-  return `${integer.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
+  return "$" + integer.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
 function formatDate(raw?: string): string {
