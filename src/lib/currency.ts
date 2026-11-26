@@ -8,10 +8,10 @@ function parseIntegerMoney(value: string | number): number | null {
   return Number.isSafeInteger(parsed) ? parsed : null;
 }
 
-/** Formats only whole DOP amounts using a dot thousands separator. */
+/** Formats only whole amounts using a dot thousands separator and the $ symbol. */
 export function formatCurrencyDOP(value?: string | number | null): string | null {
   if (value === undefined || value === null || value === "") return null;
   const integer = parseIntegerMoney(value);
   if (integer === null) return null;
-  return `RD$ ${integer.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
+  return "$" + integer.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
