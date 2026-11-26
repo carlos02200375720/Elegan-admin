@@ -18,6 +18,7 @@ import {
   updateOrderStatus,
   reviewTransferPayment,
 } from "@/lib/admin-api";
+import { subscribeRealtime } from "@/lib/realtime-events";
 import { extractOrderDeliveryDetails } from "@/lib/order-delivery";
 import {
   extractOrderItemDetails,
@@ -161,6 +162,8 @@ export default function OrdenesPage() {
   useEffect(() => {
     void loadOrders();
   }, [loadOrders]);
+
+  useEffect(() => subscribeRealtime(["orders", "products", "store_categories"], () => void loadOrders()), [loadOrders]);
 
   useEffect(() => {
     let active = true;
