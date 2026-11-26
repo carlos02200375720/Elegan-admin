@@ -35,22 +35,24 @@ function getStatusInfo(status: string) {
 }
 
 function formatDop(raw?: string | number | null, formatted?: string): string {
-  if (raw !== undefined && raw !== null && raw !== "") {
-    const cleaned =
-      typeof raw === "number"
-        ? raw
-        : Number(raw.trim().replace(/^RD\$\s*/i, "").replace(/^DOP\s*/i, "").replace(/,/g, ""));
-    if (Number.isFinite(cleaned) && cleaned >= 0) {
-      const isWhole = Math.abs(cleaned - Math.round(cleaned)) < 1e-9;
-      if (isWhole) {
-        return `RD$ ${Math.round(cleaned).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
-      }
-      const [intPart, decPart] = cleaned.toFixed(2).split(".");
-      return `RD$ ${intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".")}.${decPart}`;
-    }
+  const source = raw !== undefined && raw !== null && raw !== "" ? raw : formatted;
+  if (source === undefined || source === null || source === "") return "—";
+
+  if (typeof source === "number") {
+    if (!Number.isSafeInteger(source) || source < 0) return "—";
+    return `${source.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
   }
-  if (formatted && formatted.trim()) return formatted.trim();
-  return "—";
+
+  const normalized = source.trim()
+    .replace(/^RD\$\s*/i, "")
+    .replace(/^DOP\s*/i, "")
+    .replace(/^\$\s*/, "");
+  const isGroupedInteger = /^\d{1,3}(?:\.\d{3})+$/.test(normalized);
+  if (!/^\d+$/.test(normalized) && !isGroupedInteger) return "—";
+
+  const integer = Number(normalized.replace(/\./g, ""));
+  if (!Number.isSafeInteger(integer) || integer < 0) return "—";
+  return `${integer.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 }
 
 function formatDate(raw?: string): string {
