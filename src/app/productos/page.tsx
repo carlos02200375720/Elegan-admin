@@ -1,5 +1,4 @@
 "use client";
-
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ImagePlus, Pencil, Plus, RotateCcw, Search, X } from "lucide-react";
 import { AdminShell } from "@/components/AdminShell";
@@ -20,23 +19,19 @@ import {
   updateProductItem,
   uploadAdminMedia,
 } from "@/lib/admin-api";
-
 function formatProductPrice(value: number): string {
   if (!Number.isSafeInteger(value) || value < 0) return "—";
-  return `RD$ ${value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
+  return "$" + value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
-
 function parseWholeAmount(raw: string): number | null {
   const value = raw.trim();
   if (!/^\d+$/.test(value)) return null;
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) ? parsed : null;
 }
-
 type ShippingMethodDraft = Omit<ShippingMethod, "price"> & {
   price: string;
 };
-
 function toShippingMethodDrafts(methods?: ShippingMethod[]): ShippingMethodDraft[] {
   if (!Array.isArray(methods)) return [];
   return methods.map((method) => ({
@@ -49,7 +44,6 @@ function toShippingMethodDrafts(methods?: ShippingMethod[]): ShippingMethodDraft
         : "",
   }));
 }
-
 function parseShippingMethods(methods: ShippingMethodDraft[]): ShippingMethod[] | null {
   const parsed: ShippingMethod[] = [];
   for (const method of methods) {
@@ -74,7 +68,6 @@ function parseShippingMethods(methods: ShippingMethodDraft[]): ShippingMethod[] 
   }
   return parsed;
 }
-
 function getProductImages(product: Product | null): string[] {
   if (!product) return [];
   const list = Array.isArray(product.images)
@@ -86,7 +79,6 @@ function getProductImages(product: Product | null): string[] {
   const cover = typeof product.imageUrl === "string" ? product.imageUrl.trim() : "";
   return cover ? [cover] : [];
 }
-
 export default function ProductosPage() {
   const { token, handleUnauthorized } = useAdminAuth();
   const [products, setProducts] = useState<Product[]>([]);
@@ -95,12 +87,10 @@ export default function ProductosPage() {
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-
   // Filters
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "published" | "draft">("all");
   const [showCreate, setShowCreate] = useState(false);
-
   // Create form
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -115,7 +105,6 @@ export default function ProductosPage() {
   const [photos, setPhotos] = useState<File[]>([]);
   const [video, setVideo] = useState<File | null>(null);
   const [creating, setCreating] = useState(false);
-
   // Detail & Edit drawer (GET /products/{id} + PATCH /products/{id})
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -135,7 +124,6 @@ export default function ProductosPage() {
   const [editError, setEditError] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
   const editPhotosInputRef = useRef<HTMLInputElement | null>(null);
-
   const loadData = useCallback(async () => {
     if (!token) return;
     setLoading(true);
@@ -153,11 +141,9 @@ export default function ProductosPage() {
       setLoading(false);
     }
   }, [token, handleUnauthorized]);
-
   useEffect(() => {
     void loadData();
   }, [loadData]);
-
   const photoPreviews = useMemo(
     () =>
       photos.map((file) => ({
@@ -166,24 +152,20 @@ export default function ProductosPage() {
       })),
     [photos]
   );
-
   useEffect(() => {
     return () => {
       photoPreviews.forEach((item) => URL.revokeObjectURL(item.url));
     };
   }, [photoPreviews]);
-
   const videoPreviewUrl = useMemo(
     () => (video ? URL.createObjectURL(video) : ""),
     [video]
   );
-
   useEffect(() => {
     return () => {
       if (videoPreviewUrl) URL.revokeObjectURL(videoPreviewUrl);
     };
   }, [videoPreviewUrl]);
-
   const editPhotoPreviews = useMemo(
     () =>
       editPhotos.map((file) => ({
@@ -192,20 +174,17 @@ export default function ProductosPage() {
       })),
     [editPhotos]
   );
-
   useEffect(() => {
     return () => {
       editPhotoPreviews.forEach((item) => URL.revokeObjectURL(item.url));
     };
   }, [editPhotoPreviews]);
-
   function formatFileSize(bytes: number): string {
     if (bytes < 1024 * 1024) {
       return `${Math.max(1, Math.round(bytes / 1024))} KB`;
     }
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
-
   function selectPhotos(event: ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(event.target.files ?? []);
     const available = Math.max(0, 10 - photos.length);
@@ -217,21 +196,17 @@ export default function ProductosPage() {
     setPhotos((current) => [...current, ...selected].slice(0, 10));
     event.target.value = "";
   }
-
   function removePhotoAt(index: number) {
     setPhotos((current) => current.filter((_, idx) => idx !== index));
   }
-
   function selectVideo(event: ChangeEvent<HTMLInputElement>) {
     setVideo(event.target.files?.[0] ?? null);
   }
-
   function clearVideo() {
     setVideo(null);
     const input = document.getElementById("product-video") as HTMLInputElement | null;
     if (input) input.value = "";
   }
-
   async function handleCreateProduct(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!token) return;
@@ -261,7 +236,6 @@ export default function ProductosPage() {
         ? await uploadAdminMedia(video, token, handleUnauthorized)
         : null;
       const imageUrls = uploadedPhotos.map((item) => item.url);
-
       await createProductItem(
         {
           name: name.trim(),
@@ -288,7 +262,6 @@ export default function ProductosPage() {
         token,
         handleUnauthorized
       );
-
       setNotice(
         `Producto "${name.trim()}" ${publication === "published" ? "publicado" : "guardado como borrador"} correctamente.`
       );
@@ -312,7 +285,6 @@ export default function ProductosPage() {
       setCreating(false);
     }
   }
-
   async function handleQuickPublication(product: Product, isActive: boolean) {
     if (!token) return;
     setBusyId(product.id);
@@ -330,7 +302,6 @@ export default function ProductosPage() {
       setBusyId("");
     }
   }
-
   function closeEditDrawer() {
     setEditingProduct(null);
     setEditExistingImages([]);
@@ -338,7 +309,6 @@ export default function ProductosPage() {
     setEditVideo(null);
     setEditError("");
   }
-
   function selectEditPhotos(event: ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(event.target.files ?? []);
     if (selected.length > 0) {
@@ -347,23 +317,19 @@ export default function ProductosPage() {
     }
     event.target.value = "";
   }
-
   function removeEditExistingImageAt(index: number) {
     setEditExistingImages((current) => current.filter((_, idx) => idx !== index));
     setEditError("");
   }
-
   function removeEditNewPhotoAt(index: number) {
     setEditPhotos((current) => current.filter((_, idx) => idx !== index));
     setEditError("");
   }
-
   function restoreEditExistingImages() {
     if (!editingProduct) return;
     setEditExistingImages(getProductImages(editingProduct));
     setEditError("");
   }
-
   async function openEditDrawer(product: Product) {
     setEditingProduct(product);
     setEditName(product.name);
@@ -380,7 +346,6 @@ export default function ProductosPage() {
     setEditPhotos([]);
     setEditVideo(null);
     setEditError("");
-
     if (!token) return;
     setLoadingDetail(true);
     try {
@@ -408,7 +373,6 @@ export default function ProductosPage() {
       setLoadingDetail(false);
     }
   }
-
   async function handleSaveEdit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!token || !editingProduct) return;
@@ -445,12 +409,10 @@ export default function ProductosPage() {
         allowCashOnDelivery: editAllowCashOnDelivery,
         isActive: editActive,
       };
-
       const originalImages = getProductImages(editingProduct);
       const existingChanged =
         editExistingImages.length !== originalImages.length ||
         editExistingImages.some((url, idx) => url !== originalImages[idx]);
-
       if (existingChanged || editPhotos.length > 0) {
         const uploadedUrls: string[] = [];
         for (const file of editPhotos) {
@@ -461,13 +423,11 @@ export default function ProductosPage() {
         payload.images = finalImages;
         payload.imageUrl = finalImages[0] ?? "";
       }
-
       if (editVideo) {
         const uploadedVid = await uploadAdminMedia(editVideo, token, handleUnauthorized);
         payload.videoUrl = uploadedVid.url;
         payload.hasVideo = true;
       }
-
       await updateProductItem(editingProduct.id, payload, token, handleUnauthorized);
       setNotice(`Producto "${editName.trim()}" actualizado correctamente.`);
       closeEditDrawer();
@@ -481,7 +441,6 @@ export default function ProductosPage() {
       setSavingEdit(false);
     }
   }
-
   async function handleDeleteProduct(product: Product) {
     if (!token) return;
     setBusyId(product.id);
@@ -498,7 +457,6 @@ export default function ProductosPage() {
       setBusyId("");
     }
   }
-
   const categoryNameById = useMemo(() => {
     const map = new Map<string, string>();
     for (const item of categories) {
@@ -506,7 +464,6 @@ export default function ProductosPage() {
     }
     return map;
   }, [categories]);
-
   const getCategoryLabel = useCallback(
     (categoryValue?: string) => {
       const trimmed = categoryValue?.trim();
@@ -522,7 +479,6 @@ export default function ProductosPage() {
     },
     [categoryNameById]
   );
-
   const filteredProducts = useMemo(() => {
     const q = search.trim().toLowerCase();
     return products.filter((item) => {
@@ -536,7 +492,6 @@ export default function ProductosPage() {
       );
     });
   }, [products, search, statusFilter, getCategoryLabel]);
-
   return (
     <AdminShell
       title="Productos"
@@ -562,7 +517,6 @@ export default function ProductosPage() {
           {notice}
         </p>
       )}
-
       {showCreate && (
         <section className="panel">
           <div className="panel-header">
@@ -797,13 +751,11 @@ export default function ProductosPage() {
           </form>
         </section>
       )}
-
       <section className="panel">
         <div className="panel-header">
           <h2>Todos los productos</h2>
           <span className="panel-meta tabular">{filteredProducts.length} de {products.length}</span>
         </div>
-
         <div className="toolbar">
           <div className="search-box">
             <Search size={15} />
@@ -839,7 +791,6 @@ export default function ProductosPage() {
             </button>
           </div>
         </div>
-
         {loading ? (
           <div style={{ paddingTop: 16 }}>
             <div className="skeleton-row" />
@@ -875,9 +826,7 @@ export default function ProductosPage() {
                       <span>{getCategoryLabel(product.category)}</span>
                       <span aria-hidden="true">·</span>
                       <span className="tabular">
-                        {typeof product.priceFormatted === "string" && product.priceFormatted
-                          ? (product.priceFormatted.trim().startsWith("$") ? product.priceFormatted.trim() : `${product.priceFormatted.replace(/^RD\\$\\s*/i, "").trim()}`)
-                          : formatProductPrice(product.price ?? 0)}
+                        {formatProductPrice(product.price ?? 0)}
                       </span>
                       <span aria-hidden="true">·</span>
                       <span className="tabular">Stock: {product.stock ?? 0}</span>
@@ -924,7 +873,6 @@ export default function ProductosPage() {
           </div>
         )}
       </section>
-
       {editingProduct && (
         <div
           className="modal-backdrop"
@@ -944,14 +892,12 @@ export default function ProductosPage() {
                 <X size={18} />
               </button>
             </div>
-
             {editError && (
               <p className="message error" role="alert">
                 {editError}
               </p>
             )}
             <PreviewCookieBanner onResolved={() => setEditError("")} />
-
             {loadingDetail ? (
               <p className="muted">Cargando detalle completo del producto...</p>
             ) : (
@@ -1000,7 +946,6 @@ export default function ProductosPage() {
                       />
                     </div>
                   </div>
-
                   {editExistingImages.length === 0 && editPhotoPreviews.length === 0 ? (
                     <div className="media-empty-box">
                       Este producto no tiene imágenes. Usa &ldquo;Agregar imágenes&rdquo; para subir las que necesites.
@@ -1036,7 +981,6 @@ export default function ProductosPage() {
                           </div>
                         </div>
                       ))}
-
                       {editPhotoPreviews.map((item, idx) => {
                         const isCover = editExistingImages.length === 0 && idx === 0;
                         return (
@@ -1075,12 +1019,10 @@ export default function ProductosPage() {
                       })}
                     </div>
                   )}
-
                   <small className="muted-sm">
                     Elimina las imágenes que no quieras conservar y agrega todas las nuevas que desees. La primera imagen se mostrará como portada al guardar.
                   </small>
                 </div>
-
                 <div className="form-grid">
                   <label className="field field-wide">
                     Nombre
@@ -1198,7 +1140,6 @@ export default function ProductosPage() {
                     />
                   </label>
                 </div>
-
                 <div className="form-actions">
                   <button
                     type="submit"
