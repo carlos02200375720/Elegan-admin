@@ -14,6 +14,7 @@ import {
   updateCategoryItem,
   uploadAdminMedia,
 } from "@/lib/admin-api";
+import { subscribeRealtime } from "@/lib/realtime-events";
 
 export default function CategoriasPage() {
   const { token, handleUnauthorized } = useAdminAuth();
@@ -64,6 +65,8 @@ export default function CategoriasPage() {
   useEffect(() => {
     void loadCategories();
   }, [loadCategories]);
+
+  useEffect(() => subscribeRealtime(["store_categories"], () => void loadCategories()), [loadCategories]);
 
   async function handleSaveCategory(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
