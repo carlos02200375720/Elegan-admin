@@ -42,6 +42,7 @@ function MensajesInbox() {
   const [selectedUserId, setSelectedUserId] = useState(initialUserId);
   const selectedUserIdRef = useRef(initialUserId);
   const threadRequestRef = useRef(0);
+  const listRequestRef = useRef(0);
   selectedUserIdRef.current = selectedUserId;
   const [activeMessages, setActiveMessages] = useState<MessageItem[]>([]);
   const [loadingList, setLoadingList] = useState(true);
@@ -65,17 +66,21 @@ function MensajesInbox() {
       setLoadingList(true);
       setError("");
     }
+    const requestId = ++listRequestRef.current;
     try {
       const result = await listMessages(token, undefined, handleUnauthorized);
+      if (requestId !== listRequestRef.current) return;
       setThreads(result);
       setSelectedUserId((current) => {
         if (current) return current;
         return result[0]?.userId ?? "";
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al cargar los mensajes.");
+      if (requestId === listRequestRef.current) {
+        setError(err instanceof Error ? err.message : "Error al cargar los mensajes.");
+      }
     } finally {
-      if (!silent) setLoadingList(false);
+      if (!silent && requestId === listRequestRef.current) setLoadingList(false);
     }
   }, [token, handleUnauthorized]);
 
