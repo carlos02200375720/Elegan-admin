@@ -98,7 +98,12 @@ export function AdminShell({
       socket.onmessage = (event) => {
         try {
           const payload = JSON.parse(String(event.data));
-          if (payload.type === "data_changed" && typeof payload.collection === "string") {
+          if (payload.type === "connected") {
+            // Una reconexión puede haber perdido eventos mientras el cliente estaba offline.
+            window.dispatchEvent(new CustomEvent("elegan:realtime", {
+              detail: { type: "data_changed", collection: "supportMessages", operation: "resync" },
+            }));
+          } else if (payload.type === "data_changed" && typeof payload.collection === "string") {
             window.dispatchEvent(new CustomEvent("elegan:realtime", { detail: payload }));
           }
         } catch {
