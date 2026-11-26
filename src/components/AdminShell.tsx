@@ -92,13 +92,13 @@ export function AdminShell({
         return;
       }
       socket.onopen = () => {
-        retryDelay = 1000;
         socket?.send(JSON.stringify({ token }));
       };
       socket.onmessage = (event) => {
         try {
           const payload = JSON.parse(String(event.data));
           if (payload.type === "connected") {
+            retryDelay = 1000;
             // Una reconexión puede haber perdido eventos mientras el cliente estaba offline.
             window.dispatchEvent(new CustomEvent("elegan:realtime", {
               detail: { type: "data_changed", collection: "supportMessages", operation: "resync" },
