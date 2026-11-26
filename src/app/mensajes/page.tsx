@@ -80,7 +80,7 @@ function MensajesInbox() {
         setError(err instanceof Error ? err.message : "Error al cargar los mensajes.");
       }
     } finally {
-      if (!silent && requestId === listRequestRef.current) setLoadingList(false);
+      if (requestId === listRequestRef.current) setLoadingList(false);
     }
   }, [token, handleUnauthorized]);
 
@@ -111,7 +111,7 @@ function MensajesInbox() {
           );
         }
       } finally {
-        if (!silent && requestId === threadRequestRef.current) setLoadingThread(false);
+        if (requestId === threadRequestRef.current) setLoadingThread(false);
       }
     },
     [token, handleUnauthorized]
