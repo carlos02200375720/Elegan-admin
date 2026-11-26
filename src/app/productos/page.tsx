@@ -547,7 +547,7 @@ export default function ProductosPage() {
                 </select>
               </label>
               <label className="field">
-                Precio
+                Precio ($)
                 <input
                   type="number"
                   min="0"
@@ -1058,7 +1058,7 @@ export default function ProductosPage() {
                     </select>
                   </label>
                   <label className="field">
-                    Precio
+                    Precio ($)
                     <input
                       type="number"
                       min="0"
