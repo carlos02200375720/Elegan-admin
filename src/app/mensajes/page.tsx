@@ -47,6 +47,9 @@ function MensajesInbox() {
   const [replyText, setReplyText] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const conversationBodyRef = useRef<HTMLDivElement | null>(null);
+  const lastScrolledThreadRef = useRef("");
+  const lastMessageCountRef = useRef(0);
 
   useEffect(() => {
     threadsRef.current = threads;
@@ -168,10 +171,28 @@ function MensajesInbox() {
 
   const selectedThread = threads.find((t) => t.userId === selectedUserId);
 
+  useEffect(() => {
+    const container = conversationBodyRef.current;
+    if (!container || loadingThread) return;
+
+    const threadChanged = lastScrolledThreadRef.current !== selectedUserId;
+    const hasNewMessages = activeMessages.length > lastMessageCountRef.current;
+    const nearBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight < 140;
+
+    if (threadChanged || (hasNewMessages && nearBottom)) {
+      container.scrollTop = container.scrollHeight;
+    }
+
+    lastScrolledThreadRef.current = selectedUserId;
+    lastMessageCountRef.current = activeMessages.length;
+  }, [selectedUserId, activeMessages.length, loadingThread]);
+
   return (
     <AdminShell
       title="Mensajes"
       subtitle="Consulta las conversaciones enviadas por los clientes desde la tienda y responde directamente."
+      fixedHeight
       actions={
         <button
           type="button"
@@ -201,7 +222,7 @@ function MensajesInbox() {
             <span>Conversaciones</span>
             <span className="panel-meta tabular">{threads.length}</span>
           </div>
-          <div style={{ padding: "10px 12px", borderBottom: "1px solid var(--border)" }}>
+          <div className="inbox-threads-search">
             <div className="search-box" style={{ maxWidth: "100%" }}>
               <Search size={14} />
               <input
@@ -271,7 +292,7 @@ function MensajesInbox() {
                 </button>
               </div>
 
-              <div className="conversation-body">
+              <div className="conversation-body" ref={conversationBodyRef}>
                 {loadingThread ? (
                   <p className="muted">Cargando conversación...</p>
                 ) : activeMessages.length === 0 ? (
@@ -324,7 +345,7 @@ export default function MensajesPage() {
   return (
     <Suspense
       fallback={
-        <AdminShell title="Mensajes">
+        <AdminShell title="Mensajes" fixedHeight>
           <p className="muted">Cargando bandeja de mensajes...</p>
         </AdminShell>
       }

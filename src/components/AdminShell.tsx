@@ -42,10 +42,17 @@ type AdminShellProps = {
   title: string;
   subtitle?: string;
   actions?: ReactNode;
+  fixedHeight?: boolean;
   children: ReactNode;
 };
 
-export function AdminShell({ title, subtitle, actions, children }: AdminShellProps) {
+export function AdminShell({
+  title,
+  subtitle,
+  actions,
+  fixedHeight = false,
+  children,
+}: AdminShellProps) {
   const pathname = usePathname();
   const { user, logout } = useAdminAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -130,7 +137,7 @@ export function AdminShell({ title, subtitle, actions, children }: AdminShellPro
         </div>
       </aside>
 
-      <div className="workspace-main">
+      <div className={`workspace-main ${fixedHeight ? "is-fixed-viewport" : ""}`}>
         <header className="topbar">
           <div className="topbar-left">
             <button
@@ -153,7 +160,7 @@ export function AdminShell({ title, subtitle, actions, children }: AdminShellPro
           {actions && <div className="topbar-actions">{actions}</div>}
         </header>
 
-        <main className="workspace-content">
+        <main className={`workspace-content ${fixedHeight ? "is-fixed-viewport" : ""}`}>
           <PreviewCookieBanner />
           {subtitle && <p className="page-subtitle">{subtitle}</p>}
           {children}

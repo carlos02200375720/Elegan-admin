@@ -915,34 +915,142 @@ export async function updateAdminProfile(
 }
 
 // 7. Messages (/api/admin/messages)
+function pickNonEmptyString(values: unknown[]): string {
+  for (const value of values) {
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed) return trimmed;
+    }
+  }
+  return "";
+}
+
+function isMessageFromAdminRaw(entry: Record<string, unknown>): boolean {
+  if (entry.fromAdmin === true || entry.isAdmin === true || entry.from_admin === true || entry.is_admin === true) {
+    return true;
+  }
+  const role = String(entry.senderRole ?? entry.sender_role ?? entry.sender ?? entry.role ?? "").toLowerCase();
+  return role === "admin" || role === "administrador" || role === "staff";
+}
+
+function extractNameFromObject(obj: Record<string, unknown>): string {
+  const direct = pickNonEmptyString([
+    obj.userName,
+    obj.user_name,
+    obj.customerName,
+    obj.customer_name,
+    obj.clientName,
+    obj.client_name,
+    obj.senderName,
+    obj.sender_name,
+    obj.fullName,
+    obj.full_name,
+    obj.displayName,
+    obj.display_name,
+    obj.nombreCompleto,
+    obj.nombre_completo,
+    obj.nombre,
+    obj.name,
+  ]);
+  if (direct) return direct;
+
+  const first = pickNonEmptyString([obj.firstName, obj.first_name, obj.primerNombre]);
+  const last = pickNonEmptyString([obj.lastName, obj.last_name, obj.apellido, obj.apellidos]);
+  const combined = [first, last].filter(Boolean).join(" ").trim();
+  if (combined) return combined;
+
+  for (const nestedKey of ["user", "customer", "client", "usuario", "cliente", "sender", "profile"]) {
+    const nested = obj[nestedKey];
+    if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+      const nestedName = extractNameFromObject(nested as Record<string, unknown>);
+      if (nestedName) return nestedName;
+    }
+  }
+  return "";
+}
+
+function extractEmailFromObject(obj: Record<string, unknown>): string {
+  const direct = pickNonEmptyString([
+    obj.userEmail,
+    obj.user_email,
+    obj.customerEmail,
+    obj.customer_email,
+    obj.clientEmail,
+    obj.client_email,
+    obj.senderEmail,
+    obj.sender_email,
+    obj.correo,
+    obj.email,
+  ]);
+  if (direct) return direct;
+
+  for (const nestedKey of ["user", "customer", "client", "usuario", "cliente", "sender", "profile"]) {
+    const nested = obj[nestedKey];
+    if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+      const nestedEmail = extractEmailFromObject(nested as Record<string, unknown>);
+      if (nestedEmail) return nestedEmail;
+    }
+  }
+  return "";
+}
+
 export function normalizeMessageThreads(raw: unknown): MessageThread[] {
   const rawList = unwrapItems<Record<string, unknown>>(raw, ["messages", "conversations", "threads"]);
   const map = new Map<string, MessageThread>();
+  const hasRealName = new Set<string>();
 
   for (const entry of rawList) {
     // Caso A: el backend devuelve hilos/conversaciones con array interno de mensajes
     if (Array.isArray(entry.messages)) {
       const uid = String(entry.userId ?? entry.user_id ?? entry.id ?? "");
       if (!uid) continue;
-      const msgs = (entry.messages as Record<string, unknown>[]).map((m) => ({
+      const rawMsgs = entry.messages as Record<string, unknown>[];
+      const msgs = rawMsgs.map((m) => ({
         ...m,
         text: String(m.text ?? m.message ?? m.content ?? ""),
-        createdAt: typeof m.createdAt === "string" ? m.createdAt : typeof m.timestamp === "string" ? m.timestamp : undefined,
+        createdAt:
+          typeof m.createdAt === "string"
+            ? m.createdAt
+            : typeof m.timestamp === "string"
+              ? m.timestamp
+              : typeof m.created_at === "string"
+                ? m.created_at
+                : undefined,
       })) as MessageItem[];
       const last = msgs[msgs.length - 1];
+
+      let resolvedName = extractNameFromObject(entry);
+      let resolvedEmail = extractEmailFromObject(entry);
+
+      if (!resolvedName || !resolvedEmail) {
+        for (const msg of rawMsgs) {
+          if (isMessageFromAdminRaw(msg)) continue;
+          if (!resolvedName) resolvedName = extractNameFromObject(msg);
+          if (!resolvedEmail) resolvedEmail = extractEmailFromObject(msg);
+          if (resolvedName && resolvedEmail) break;
+        }
+      }
+
+      if (resolvedName) hasRealName.add(uid);
+
       map.set(uid, {
         userId: uid,
-        userName: String(entry.userName ?? entry.customerName ?? entry.name ?? `Cliente ${uid.slice(0, 8)}`),
-        userEmail: typeof entry.userEmail === "string" ? entry.userEmail : typeof entry.email === "string" ? entry.email : undefined,
-        lastText: String(entry.lastMessage ?? last?.text ?? ""),
-        lastAt: typeof entry.updatedAt === "string" ? entry.updatedAt : last?.createdAt,
+        userName: resolvedName || resolvedEmail || `Cliente ${uid.slice(0, 8)}`,
+        userEmail: resolvedEmail || undefined,
+        lastText: String(entry.lastMessage ?? entry.last_message ?? last?.text ?? ""),
+        lastAt:
+          typeof entry.updatedAt === "string"
+            ? entry.updatedAt
+            : typeof entry.updated_at === "string"
+              ? entry.updated_at
+              : last?.createdAt,
         messages: msgs,
       });
       continue;
     }
 
     // Caso B: el backend devuelve mensajes individuales planos
-    const uid = String(entry.userId ?? entry.user_id ?? entry.clientId ?? entry.customerId ?? "");
+    const uid = String(entry.userId ?? entry.user_id ?? entry.clientId ?? entry.client_id ?? entry.customerId ?? entry.customer_id ?? "");
     if (!uid) continue;
     const item: MessageItem = {
       ...entry,
@@ -957,16 +1065,49 @@ export function normalizeMessageThreads(raw: unknown): MessageThread[] {
               ? entry.created_at
               : undefined,
     };
+
+    const fromAdmin = isMessageFromAdminRaw(entry);
+    const entryName = fromAdmin
+      ? pickNonEmptyString([
+          entry.userName,
+          entry.user_name,
+          entry.customerName,
+          entry.customer_name,
+          entry.clientName,
+          entry.client_name,
+        ])
+      : extractNameFromObject(entry);
+    const entryEmail = fromAdmin
+      ? pickNonEmptyString([
+          entry.userEmail,
+          entry.user_email,
+          entry.customerEmail,
+          entry.customer_email,
+          entry.clientEmail,
+          entry.client_email,
+        ])
+      : extractEmailFromObject(entry);
+
     const existing = map.get(uid);
     if (existing) {
       existing.messages.push(item);
       existing.lastText = item.text || existing.lastText;
       existing.lastAt = item.createdAt || existing.lastAt;
+      if (entryEmail && !existing.userEmail) {
+        existing.userEmail = entryEmail;
+      }
+      if (entryName && !hasRealName.has(uid)) {
+        existing.userName = entryName;
+        hasRealName.add(uid);
+      } else if (entryEmail && !hasRealName.has(uid) && existing.userName.startsWith("Cliente ")) {
+        existing.userName = entryEmail;
+      }
     } else {
+      if (entryName) hasRealName.add(uid);
       map.set(uid, {
         userId: uid,
-        userName: String(entry.userName ?? entry.customerName ?? entry.name ?? `Cliente ${uid.slice(0, 8)}`),
-        userEmail: typeof entry.userEmail === "string" ? entry.userEmail : typeof entry.email === "string" ? entry.email : undefined,
+        userName: entryName || entryEmail || `Cliente ${uid.slice(0, 8)}`,
+        userEmail: entryEmail || undefined,
         lastText: item.text,
         lastAt: item.createdAt,
         messages: [item],
