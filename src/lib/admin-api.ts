@@ -1399,3 +1399,19 @@ export async function updateCashOnDeliveryConfig(
     body: JSON.stringify(payload),
   });
 }
+
+export type ActiveUsersSnapshot = {
+  activeUsers: number;
+  measuredAt: string;
+  activeWindowSeconds: number;
+};
+
+export async function getActiveUsers(
+  token: string,
+  onUnauthorized?: () => void
+): Promise<ActiveUsersSnapshot> {
+  return adminFetch<ActiveUsersSnapshot>("/api/admin/presence/active-users", {
+    token,
+    onUnauthorized,
+  });
+}
