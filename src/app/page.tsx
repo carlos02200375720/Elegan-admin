@@ -20,6 +20,7 @@ import {
 } from "@/lib/admin-api";
 import { subscribeRealtime } from "@/lib/realtime-events";
 import { formatCurrencyDOP } from "@/lib/currency";
+import { ActiveUsersCard } from "@/components/ActiveUsersCard";
 
 function getOrderStatusMeta(status: string) {
   const found = ORDER_STATUSES.find((item) => item.value === status);
@@ -102,6 +103,8 @@ export default function HomePage() {
           {error}
         </p>
       )}
+
+      <ActiveUsersCard />
 
       <section className="kpi-grid" aria-label="Conteos actuales">
         <Link href="/productos" className="kpi-card">
